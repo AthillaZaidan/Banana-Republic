@@ -14,8 +14,8 @@ import  java.util.List;
  */
 public class Board {
     private Map<String, HexTile> tiles;
-    private Map<String, Intersection> intersection;
-    private Map<String, Path> path;
+    private Map<String, Intersection> intersections;
+    private Map<String, Path> paths;
     private List<Harbor> harbors;
 
     public Board (
@@ -23,7 +23,12 @@ public class Board {
         Map<String, Intersection> intersection,
         Map<String, Path> path,
         List<Harbor> harbors
-    )
+    ) {
+        this.tiles = tiles;
+        this.intersections = intersection;
+        this.paths = path;
+        this.harbors = harbors;
+    }
 
     public HexTile getTiles(String id){
         return tiles.get(id);
