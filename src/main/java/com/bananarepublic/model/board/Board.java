@@ -1,7 +1,8 @@
 package com.bananarepublic.model.board;
-// import com.bananarepublic.model.board.Intersection;
+import java.util.Collection;
 import java.util.Map;
-import  java.util.List;
+
+import  com.bananarepublic.model.harbor.Harbor;
 
 /**
  * jadi dalam board ini bakalan ada 
@@ -17,18 +18,18 @@ public class Board {
     private Map<String, HexTile> tiles;
     private Map<String, Intersection> intersections;
     private Map<String, Path> paths;
-    private List<Harbor> harbors;
+    private Map<String, Harbor> harbors;
 
     public Board (
         Map<String, HexTile> tiles,
         Map<String, Intersection> intersection,
         Map<String, Path> path,
-        List<Harbor> harbors
+        Map<String, Harbor> harbors
     ) {
         this.tiles = Map.copyOf(tiles);
         this.intersections = Map.copyOf(intersections);
         this.paths = Map.copyOf(paths);
-        this.harbors = List.copyOf(harbors);
+        this.harbors = Map.copyOf(harbors);
     }
 
     public HexTile getTiles(String id){
@@ -55,7 +56,7 @@ public class Board {
         return paths.values();
     }
 
-    public List<Harbor> getHarbors() {
-        return harbors;
+    public Collection<Harbor> getHarbors() {
+        return harbors.values();
     }
 }
