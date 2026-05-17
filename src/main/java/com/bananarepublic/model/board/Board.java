@@ -1,4 +1,5 @@
 package com.bananarepublic.model.board;
+// import com.bananarepublic.model.board.Intersection;
 import java.util.Map;
 import  java.util.List;
 
@@ -24,10 +25,10 @@ public class Board {
         Map<String, Path> path,
         List<Harbor> harbors
     ) {
-        this.tiles = tiles;
-        this.intersections = intersection;
-        this.paths = path;
-        this.harbors = harbors;
+        this.tiles = Map.copyOf(tiles);
+        this.intersections = Map.copyOf(intersections);
+        this.paths = Map.copyOf(paths);
+        this.harbors = List.copyOf(harbors);
     }
 
     public HexTile getTiles(String id){
@@ -35,7 +36,7 @@ public class Board {
     }
 
     public Intersection getIntersection(String id){
-        return intersection.get(id);
+        return intersections.get(id);
     }
 
         public Path getPath(String id) {
