@@ -1,6 +1,7 @@
 package com.bananarepublic.model.board;
 
 import com.bananarepublic.model.transport.Pipe;
+import com.bananarepublic.model.harbor.Harbor;
 
 import java.util.ArrayList;
 import java.util.List;

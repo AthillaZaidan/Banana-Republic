@@ -1,11 +1,11 @@
 package com.bananarepublic.model.board;
 
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.bananarepublic.model.resource.ResourceType;
-import com.bananarepublic.model.resource.TerrainType;
+// import com.bananarepublic.model.resource.TerrainType;
 /**
  * nah jadi ini hex, tipe" nya kaya hutan, gurun dst. gitu 
  * nah 
@@ -13,10 +13,10 @@ import com.bananarepublic.model.resource.TerrainType;
 
 
 public class HexTile{
-    private String id;
-    private TerrainType terrainType;
-    private Integer token;
-    private List<Intersection> listIntersection = new ArrayList<>();
+    private final String id;
+    private final TerrainType terrainType;
+    private final Integer token;
+    private final List<Intersection> listIntersection = new ArrayList<>();
 
     public HexTile (String id, TerrainType terrainType, int token){
         this.id = id;
