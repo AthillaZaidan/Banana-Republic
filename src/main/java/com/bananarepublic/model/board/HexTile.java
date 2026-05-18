@@ -12,36 +12,53 @@ import com.bananarepublic.model.resource.ResourceType;
  */
 
 
-public class HexTile{
+public class HexTile {
     private final String id;
     private final TerrainType terrainType;
     private final Integer token;
-    private final List<Intersection> listIntersection = new ArrayList<>();
+    private final List<Intersection> intersections = new ArrayList<>();
 
-    public HexTile (String id, TerrainType terrainType, int token){
+    public HexTile(String id, TerrainType terrainType, Integer token) {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("HexTile id cannot be empty");
+        }
+
         this.id = id;
-        this.terrainType = terrainType;
+        this.terrainType = Objects.requireNonNull(terrainType, "Terrain type cannot be null");
+
+        if (terrainType.producesResource() && token == null) {
+            throw new IllegalArgumentException("Resource-producing tile must have token");
+        }
+
+        if (!terrainType.producesResource() && token != null) {
+            throw new IllegalArgumentException("Non-producing tile must not have token");
+        }
+
         this.token = token;
     }
 
-    public String getId(){
+    public String getId() {
         return id;
     }
 
-    public TerrainType getTerrainType(){
+    public TerrainType getTerrainType() {
         return terrainType;
     }
 
-    public int getToken(){
+    public Integer getToken() {
         return token;
     }
 
-    public void addIntersection(Intersection intersection){
-        listIntersection.add(intersection);
+    public void addIntersection(Intersection intersection) {
+        Objects.requireNonNull(intersection, "Intersection cannot be null");
+
+        if (!intersections.contains(intersection)) {
+            intersections.add(intersection);
+        }
     }
 
-    public List<Intersection> getIntersection(){
-        return List.copyOf(listIntersection);
+    public List<Intersection> getIntersections() {
+        return List.copyOf(intersections);
     }
 
     public ResourceType getProducedResource() {
