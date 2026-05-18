@@ -27,8 +27,8 @@ public class Board {
         Map<String, Harbor> harbors
     ) {
         this.tiles = Map.copyOf(tiles);
-        this.intersections = Map.copyOf(intersections);
-        this.paths = Map.copyOf(paths);
+        this.intersections = Map.copyOf(intersection);
+        this.paths = Map.copyOf(path);
         this.harbors = Map.copyOf(harbors);
     }
 
