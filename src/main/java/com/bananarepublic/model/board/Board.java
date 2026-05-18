@@ -15,10 +15,10 @@ import  com.bananarepublic.model.harbor.Harbor;
  * 4. harbor diujung map
  */
 public class Board {
-    private Map<String, HexTile> tiles;
-    private Map<String, Intersection> intersections;
-    private Map<String, Path> paths;
-    private Map<String, Harbor> harbors;
+    private final  Map<String, HexTile> tiles;
+    private final Map<String, Intersection> intersections;
+    private final Map<String, Path> paths;
+    private final Map<String, Harbor> harbors;
 
     public Board (
         Map<String, HexTile> tiles,
