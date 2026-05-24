@@ -291,8 +291,24 @@ public class GameController {
             log("[Roll] " + engine.getState().getCurrentPlayer().getName()
                 + " rolled " + roll.getFirst() + "+" + roll.getSecond()
                 + " = " + roll.total() + ".");
+            if (roll.total() == 7 && anyHandOver(engine.getState(), 7)) {
+                Navigator.showOverlay("/fxml/discard_dialog.fxml");
+            }
+            checkVictory();
         } catch (RuntimeException ex) {
             log("[Roll] " + ex.getMessage());
+        }
+    }
+
+    private boolean anyHandOver(GameState state, int threshold) {
+        return state.getPlayers().stream()
+            .anyMatch(p -> p.getTotalResourceCards() > threshold);
+    }
+
+    private void checkVictory() {
+        if (!GameSession.hasEngine()) return;
+        if (GameSession.engine().getState().isGameOver()) {
+            Navigator.showOverlay("/fxml/victory_dialog.fxml");
         }
     }
 
@@ -302,11 +318,11 @@ public class GameController {
         if (GameSession.hasEngine()) {
             GameEngine engine = GameSession.engine();
             try {
-                engine.endTurn();
                 if (engine.getState().isGameOver()) {
-                    Navigator.goTo("/fxml/game_result.fxml");
+                    Navigator.showOverlay("/fxml/victory_dialog.fxml");
                     return;
                 }
+                engine.endTurn();
             } catch (RuntimeException ex) {
                 System.out.println("[EndTurn] " + ex.getMessage());
             }
