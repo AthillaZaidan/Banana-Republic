@@ -41,8 +41,9 @@ public class LobbyController {
     @FXML
     public void initialize() {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.PARCHMENT);
+        playerCountBox.getItems().setAll(3, 4);
         playerCountBox.valueProperty().addListener((obs, oldV, newV) -> rebuildPlayerRows(newV));
-        rebuildPlayerRows(playerCountBox.getValue());
+        playerCountBox.setValue(4);
     }
 
     private void rebuildPlayerRows(Integer count) {
