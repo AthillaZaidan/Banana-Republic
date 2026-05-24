@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
@@ -63,6 +64,9 @@
 
             <Label styleClass="warn-band" maxWidth="Infinity"
                    text="⚠  Loading a plugin mid-game resets the deck and discards undrawn cards."/>
+
+            <CheckBox fx:id="animatedBgToggle" text="Animated background (clouds, gull, bobbing ship)"
+                      style="-fx-font-size: 12px; -fx-text-fill: -ink-2;"/>
         </VBox>
 
         <HBox styleClass="modal__footer">

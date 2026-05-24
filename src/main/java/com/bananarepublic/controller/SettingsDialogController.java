@@ -1,8 +1,10 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
@@ -12,6 +14,12 @@ import java.io.File;
 
 public class SettingsDialogController {
     @FXML private StackPane root;
+    @FXML private CheckBox animatedBgToggle;
+
+    @FXML
+    public void initialize() {
+        animatedBgToggle.setSelected(LivingBackground.isAnimationsEnabled());
+    }
 
     @FXML
     private void onSaveState() {
@@ -39,7 +47,9 @@ public class SettingsDialogController {
 
     @FXML
     private void onApply() {
-        System.out.println("[Settings] apply");
+        LivingBackground.setAnimationsEnabled(animatedBgToggle.isSelected());
+        System.out.println("[Settings] apply (animations="
+            + animatedBgToggle.isSelected() + ")");
         close();
     }
 

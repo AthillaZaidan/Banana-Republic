@@ -7,6 +7,11 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.ClosePath;
+import javafx.scene.shape.LineTo;
+import javafx.scene.shape.MoveTo;
+import javafx.scene.shape.Path;
+import javafx.scene.shape.PathElement;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
@@ -190,16 +195,35 @@ public final class HexBoard extends Pane {
     private void buildIsland(double w, double h) {
         double cx = w / 2;
         double cy = h / 2;
-        Ellipse ringShadow = new Ellipse(cx, cy + 16, 380, 320);
-        ringShadow.setFill(Color.web("#8a5a14", 0.35));
-        getChildren().add(ringShadow);
+        Path shadow = wobblyRing(cx, cy + 16, 380, 320, 0.06, 17);
+        shadow.setFill(Color.web("#8a5a14", 0.35));
+        shadow.setStroke(null);
+        getChildren().add(shadow);
 
-        Ellipse ring = new Ellipse(cx, cy + 8, 380, 320);
+        Path ring = wobblyRing(cx, cy + 8, 380, 320, 0.06, 13);
         ring.setFill(Color.web("#e8c882"));
         ring.setStroke(Color.web("#a67d36"));
         ring.setStrokeWidth(3);
         ring.setEffect(new DropShadow(20, Color.web("#06294a", 0.5)));
         getChildren().add(ring);
+    }
+
+    private Path wobblyRing(double cx, double cy, double rx, double ry,
+                            double wobble, long seed) {
+        java.util.Random rng = new java.util.Random(seed);
+        int steps = 60;
+        java.util.List<PathElement> elems = new java.util.ArrayList<>(steps + 2);
+        for (int i = 0; i <= steps; i++) {
+            double t = (2 * Math.PI * i) / steps;
+            double noise = 1 + (rng.nextDouble() - 0.5) * wobble;
+            double x = cx + Math.cos(t) * rx * noise;
+            double y = cy + Math.sin(t) * ry * noise;
+            elems.add(i == 0 ? new MoveTo(x, y) : new LineTo(x, y));
+        }
+        elems.add(new ClosePath());
+        Path p = new Path();
+        p.getElements().addAll(elems);
+        return p;
     }
 
     private void buildHexes(double w, double h) {

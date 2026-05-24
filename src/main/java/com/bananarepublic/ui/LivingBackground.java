@@ -23,11 +23,26 @@ public final class LivingBackground {
 
     public enum Variant { PARCHMENT, OCEAN, SLATE }
 
+    private static volatile boolean animationsEnabled = true;
+    private static final java.util.List<Timeline> running = new java.util.concurrent.CopyOnWriteArrayList<>();
+
     private LivingBackground() {}
+
+    public static void setAnimationsEnabled(boolean enabled) {
+        animationsEnabled = enabled;
+        for (Timeline tl : running) {
+            if (enabled) tl.play(); else tl.pause();
+        }
+    }
+
+    public static boolean isAnimationsEnabled() {
+        return animationsEnabled;
+    }
 
     public static void attach(Pane layer, Variant variant) {
         if (layer == null) return;
         layer.setMouseTransparent(true);
+        layer.getStyleClass().add("animated-bg");
 
         layer.getChildren().add(buildCloud(120, 60, 1.0,  0.85, 80));
         layer.getChildren().add(buildCloud(420, 120, 0.7, 0.65, 56));
@@ -45,6 +60,11 @@ public final class LivingBackground {
             layer.getChildren().add(ship);
             animateShipBob(ship);
         }
+    }
+
+    private static void track(Timeline tl) {
+        running.add(tl);
+        if (animationsEnabled) tl.play();
     }
 
     private static Ellipse buildCloud(double x, double y, double scale,
@@ -71,7 +91,7 @@ public final class LivingBackground {
             new KeyFrame(Duration.seconds(seconds),
                 new KeyValue(cloud.translateXProperty(), 1500 - startX, Interpolator.LINEAR)));
         tl.setCycleCount(Animation.INDEFINITE);
-        tl.play();
+        track(tl);
     }
 
     private static Group buildGull(Color color) {
@@ -101,7 +121,7 @@ public final class LivingBackground {
                 new KeyValue(gull.translateYProperty(), -40),
                 new KeyValue(gull.opacityProperty(), 0)));
         tl.setCycleCount(Animation.INDEFINITE);
-        tl.play();
+        track(tl);
     }
 
     private static Group buildShip() {
@@ -152,7 +172,7 @@ public final class LivingBackground {
                 new KeyValue(ship.translateYProperty(), 0),
                 new KeyValue(ship.rotateProperty(), -2)));
         tl.setCycleCount(Animation.INDEFINITE);
-        tl.play();
+        track(tl);
     }
 
 }
