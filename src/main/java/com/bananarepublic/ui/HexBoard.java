@@ -61,6 +61,7 @@ public final class HexBoard extends Pane {
         buildHarbors(width, height);
         buildIsland(width, height);
         buildHexes(width, height);
+        buildBuildings(width, height);
     }
 
     private void buildIsland(double w, double h) {
@@ -311,6 +312,112 @@ public final class HexBoard extends Pane {
         }
     }
 
+    private void buildBuildings(double w, double h) {
+        double cx = w / 2;
+        double cy = h / 2;
+
+        drawPipe(cx - HEX_W / 2, cy - HEX_SIZE,       cx,             cy - HEX_SIZE * 1.3, PColor.RED);
+        drawPipe(cx + HEX_W / 2, cy - HEX_SIZE * 0.8, cx + HEX_W,     cy - HEX_SIZE,       PColor.RED);
+        drawPipe(cx,             cy + HEX_SIZE * 0.5, cx + HEX_W / 2, cy + HEX_SIZE * 0.8, PColor.BLUE);
+        drawPipe(cx - HEX_W,     cy + HEX_SIZE * 0.6, cx - HEX_W * 0.5, cy + HEX_SIZE,     PColor.GOLD);
+        drawPipe(cx + HEX_W * 0.5, cy + HEX_SIZE * 1.3, cx + HEX_W,   cy + HEX_SIZE * 1.1, PColor.GOLD);
+
+        drawWatchPost(cx + HEX_W * 0.5,  cy - HEX_SIZE * 1.5, PColor.RED);
+        drawWatchPost(cx - HEX_W * 0.5,  cy + HEX_SIZE * 0.5, PColor.BLUE);
+        drawWatchPost(cx + HEX_W,        cy + HEX_SIZE,       PColor.GOLD);
+        drawWatchPost(cx - HEX_W * 1.5,  cy,                  PColor.WHITE);
+
+        drawLab(cx + HEX_W * 0.5, cy - HEX_SIZE * 0.6, PColor.RED);
+    }
+
+    private void drawPipe(double x1, double y1, double x2, double y2, PColor color) {
+        Line shadow = new Line(x1, y1 + 4, x2, y2 + 4);
+        shadow.setStroke(Color.color(0, 0.08, 0.16, 0.4));
+        shadow.setStrokeWidth(10);
+        shadow.setStrokeLineCap(StrokeLineCap.ROUND);
+        getChildren().add(shadow);
+
+        Line pipe = new Line(x1, y1, x2, y2);
+        pipe.setStroke(color.fill);
+        pipe.setStrokeWidth(9);
+        pipe.setStrokeLineCap(StrokeLineCap.ROUND);
+        pipe.setEffect(new DropShadow(2, Color.color(0, 0.12, 0.2, 0.5)));
+        getChildren().add(pipe);
+    }
+
+    private void drawWatchPost(double cx, double cy, PColor color) {
+        Ellipse shadow = new Ellipse(cx, cy + 9, 10, 3);
+        shadow.setFill(Color.color(0, 0.08, 0.16, 0.45));
+        getChildren().add(shadow);
+
+        Ellipse base = new Ellipse(cx, cy + 4, 10, 4);
+        base.setFill(color.edge);
+        getChildren().add(base);
+
+        javafx.scene.shape.Rectangle body = new javafx.scene.shape.Rectangle(cx - 8, cy - 6, 16, 14);
+        body.setArcWidth(2); body.setArcHeight(2);
+        body.setFill(color.fill);
+        body.setStroke(Color.web("#0a0805"));
+        body.setStrokeWidth(1.4);
+        getChildren().add(body);
+
+        Polygon roof = new Polygon(
+            cx - 9, cy - 6,
+            cx,     cy - 14,
+            cx + 9, cy - 6
+        );
+        roof.setFill(color.edge);
+        roof.setStroke(Color.web("#0a0805"));
+        roof.setStrokeWidth(1.4);
+        getChildren().add(roof);
+    }
+
+    private void drawLab(double cx, double cy, PColor color) {
+        Ellipse shadow = new Ellipse(cx + 3, cy + 14, 14, 4);
+        shadow.setFill(Color.color(0, 0.08, 0.16, 0.45));
+        getChildren().add(shadow);
+
+        Polygon front = new Polygon(
+            cx - 11, cy - 8,
+            cx + 11, cy - 8,
+            cx + 11, cy + 12,
+            cx - 11, cy + 12
+        );
+        front.setFill(color.edge);
+        front.setStroke(Color.web("#0a0805"));
+        front.setStrokeWidth(1.4);
+        getChildren().add(front);
+
+        Polygon side = new Polygon(
+            cx + 11, cy - 8,
+            cx + 16, cy - 12,
+            cx + 16, cy + 8,
+            cx + 11, cy + 12
+        );
+        side.setFill(color.edge.darker());
+        side.setStroke(Color.web("#0a0805"));
+        side.setStrokeWidth(1.4);
+        side.setOpacity(0.85);
+        getChildren().add(side);
+
+        Polygon top = new Polygon(
+            cx - 11, cy - 8,
+            cx + 11, cy - 8,
+            cx + 16, cy - 12,
+            cx - 6,  cy - 12
+        );
+        top.setFill(color.fill);
+        top.setStroke(Color.web("#0a0805"));
+        top.setStrokeWidth(1.4);
+        getChildren().add(top);
+
+        javafx.scene.shape.Rectangle chimney = new javafx.scene.shape.Rectangle(cx + 2, cy - 16, 4, 6);
+        chimney.setFill(color.edge);
+        chimney.setStroke(Color.web("#0a0805"));
+        chimney.setStrokeWidth(1);
+        getChildren().add(chimney);
+    }
+
     private static Polygon makeHex(double cx, double cy, double r) {
         Polygon p = new Polygon();
         for (int i = 0; i < 6; i++) {
@@ -338,4 +445,17 @@ public final class HexBoard extends Pane {
     }
 
     private record Harbor(String label, String ratio, Color color, double dx, double dy) {}
+
+    private enum PColor {
+        RED  ("#e64b3f", "#962820"),
+        BLUE ("#2c6db5", "#1b4778"),
+        GOLD ("#f5c93a", "#a07c14"),
+        WHITE("#efe6cc", "#b8aa86");
+
+        final Color fill, edge;
+        PColor(String fill, String edge) {
+            this.fill = Color.web(fill);
+            this.edge = Color.web(edge);
+        }
+    }
 }
