@@ -187,9 +187,9 @@ public class GameController {
     }
 
     @FXML private void onScoreboard() { System.out.println("[Game] scoreboard"); }
-    @FXML private void onTrade()      { Navigator.openModal("/fxml/trade_dialog.fxml",    "Trade Resources"); }
-    @FXML private void onCards()      { Navigator.openModal("/fxml/cards_dialog.fxml",    "Experiment Cards"); }
-    @FXML private void onSettings()   { Navigator.openModal("/fxml/settings_dialog.fxml", "Settings & Plugins"); }
+    @FXML private void onTrade()      { Navigator.showOverlay("/fxml/trade_dialog.fxml"); }
+    @FXML private void onCards()      { Navigator.showOverlay("/fxml/cards_dialog.fxml"); }
+    @FXML private void onSettings()   { Navigator.showOverlay("/fxml/settings_dialog.fxml"); }
     @FXML private void onRollDice()   { System.out.println("[Game] roll dice"); }
     @FXML
     private void onEndTurn() {

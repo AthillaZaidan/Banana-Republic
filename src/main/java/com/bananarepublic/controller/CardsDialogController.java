@@ -1,12 +1,12 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 
 import java.util.List;
 
@@ -14,6 +14,7 @@ public class CardsDialogController {
     private record CardData(String kind, String icon, String headerLabel,
                             String name, String desc, boolean playable) {}
 
+    @FXML private StackPane root;
     @FXML private HBox cardRow;
 
     private VBox selected;
@@ -98,8 +99,6 @@ public class CardsDialogController {
     private void onClose() { close(); }
 
     private void close() {
-        if (cardRow == null) return;
-        Stage st = (Stage) cardRow.getScene().getWindow();
-        st.close();
+        Navigator.closeOverlay(root);
     }
 }

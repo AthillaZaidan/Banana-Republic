@@ -1,7 +1,7 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.Stepper;
-import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -10,7 +10,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -76,8 +75,6 @@ public class DiscardDialogController {
     private void onClose() { close(); }
 
     private void close() {
-        if (root == null || root.getScene() == null) return;
-        Stage st = (Stage) root.getScene().getWindow();
-        st.close();
+        Navigator.closeOverlay(root);
     }
 }

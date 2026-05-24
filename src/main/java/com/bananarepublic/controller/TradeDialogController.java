@@ -1,14 +1,13 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.Stepper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 
 import java.util.List;
 
@@ -23,6 +22,7 @@ public class TradeDialogController {
     );
     private static final int[] OWNED = {2, 1, 2, 1, 1};
 
+    @FXML private StackPane root;
     @FXML private Label tabDomestic;
     @FXML private Label tabMaritime;
     @FXML private HBox giveRow;
@@ -102,8 +102,6 @@ public class TradeDialogController {
     private void onClose() { close(); }
 
     private void close() {
-        if (tabDomestic == null) return;
-        Stage st = (Stage) tabDomestic.getScene().getWindow();
-        st.close();
+        Navigator.closeOverlay(root);
     }
 }

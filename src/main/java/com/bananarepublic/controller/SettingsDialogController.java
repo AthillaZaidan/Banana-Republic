@@ -3,12 +3,9 @@ package com.bananarepublic.controller;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
-import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
-import javafx.stage.Stage;
 
 import java.io.File;
 
@@ -57,9 +54,6 @@ public class SettingsDialogController {
     private void onClose() { close(); }
 
     private void close() {
-        Node source = root != null ? root : null;
-        if (source == null || source.getScene() == null) return;
-        Stage st = (Stage) source.getScene().getWindow();
-        st.close();
+        Navigator.closeOverlay(root);
     }
 }
