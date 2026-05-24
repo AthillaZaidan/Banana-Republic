@@ -1,6 +1,7 @@
 package com.bananarepublic.controller;
 
 import com.bananarepublic.ui.Navigator;
+import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.Stepper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
@@ -15,13 +16,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DiscardDialogController {
-    private record Holding(String key, String icon, String label, int hold) {}
+    private record Holding(ResourceIcons.Kind kind, String label, int hold) {}
     private static final List<Holding> HOLDINGS = List.of(
-        new Holding("wood",   "🌲", "WOOD",   1),
-        new Holding("brick",  "🧱", "BRICK",  2),
-        new Holding("wheat",  "🌾", "WHEAT",  3),
-        new Holding("ore",    "⛏",  "ORE",    1),
-        new Holding("banana", "🍌", "BANANA", 2)
+        new Holding(ResourceIcons.Kind.WOOD,   "WOOD",   1),
+        new Holding(ResourceIcons.Kind.BRICK,  "BRICK",  2),
+        new Holding(ResourceIcons.Kind.WHEAT,  "WHEAT",  3),
+        new Holding(ResourceIcons.Kind.ORE,    "ORE",    1),
+        new Holding(ResourceIcons.Kind.BANANA, "BANANA", 2)
     );
     private static final int REQUIRED = 4;
 
@@ -42,8 +43,8 @@ public class DiscardDialogController {
                 + " -fx-background-radius: 10;");
             HBox.setHgrow(col, Priority.ALWAYS);
 
-            Label icon = new Label(h.icon());
-            icon.setStyle("-fx-font-size: 28px;");
+            StackPane icon = new StackPane(ResourceIcons.of(h.kind()));
+            icon.setMinSize(30, 30); icon.setMaxSize(30, 30);
             Label name = new Label(h.label());
             name.getStyleClass().add("eyebrow");
             Label hold = new Label("Hold: " + h.hold());

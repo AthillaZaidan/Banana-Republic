@@ -1,6 +1,7 @@
 package com.bananarepublic.controller;
 
 import com.bananarepublic.ui.Navigator;
+import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.Stepper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
@@ -12,13 +13,13 @@ import javafx.scene.layout.VBox;
 import java.util.List;
 
 public class TradeDialogController {
-    private record Resource(String key, String icon, String label) {}
+    private record Resource(ResourceIcons.Kind kind, String label) {}
     private static final List<Resource> RES = List.of(
-        new Resource("wood",   "🌲", "WOOD"),
-        new Resource("brick",  "🧱", "BRICK"),
-        new Resource("wheat",  "🌾", "WHEAT"),
-        new Resource("ore",    "⛏",  "ORE"),
-        new Resource("banana", "🍌", "BANANA")
+        new Resource(ResourceIcons.Kind.WOOD,   "WOOD"),
+        new Resource(ResourceIcons.Kind.BRICK,  "BRICK"),
+        new Resource(ResourceIcons.Kind.WHEAT,  "WHEAT"),
+        new Resource(ResourceIcons.Kind.ORE,    "ORE"),
+        new Resource(ResourceIcons.Kind.BANANA, "BANANA")
     );
     private static final int[] OWNED = {2, 1, 2, 1, 1};
 
@@ -47,8 +48,8 @@ public class TradeDialogController {
     private VBox resTile(Resource r, int owned, int max) {
         VBox tile = new VBox(4);
         tile.getStyleClass().add("res-tile");
-        Label icon = new Label(r.icon());
-        icon.setStyle("-fx-font-size: 26px;");
+        StackPane icon = new StackPane(ResourceIcons.of(r.kind()));
+        icon.setMinSize(28, 28); icon.setMaxSize(28, 28);
         Label name = new Label(r.label());
         name.getStyleClass().add("eyebrow");
         Label hold = new Label("Hold: " + owned);
