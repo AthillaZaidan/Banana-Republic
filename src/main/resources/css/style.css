@@ -791,3 +791,28 @@
     -fx-background-radius: 0 0 10 10;
 }
 .exp-card-footer.is-passive { -fx-text-fill: -ink-mute; }
+
+.check-box {
+    -fx-text-fill: -ink-2;
+    -fx-font-size: 12px;
+}
+.check-box > .box {
+    -fx-background-color: #fff8e1;
+    -fx-border-color: -parchment-line;
+    -fx-border-width: 1.5;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-padding: 2;
+}
+.check-box:hover > .box {
+    -fx-border-color: -gold-2;
+}
+.check-box:selected > .box {
+    -fx-background-color: linear-gradient(to bottom, -gold-3 0%, -gold-1 100%);
+    -fx-border-color: -gold-deep;
+}
+.check-box:selected > .box > .mark {
+    -fx-background-color: -gold-deep;
+    -fx-padding: 3.5;
+    -fx-shape: "M 0 4 L 3 7 L 8 0";
+}
