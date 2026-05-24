@@ -1,5 +1,11 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.engine.BoardMode;
+import com.bananarepublic.engine.GameConfig;
+import com.bananarepublic.engine.GameEngine;
+import com.bananarepublic.engine.PlayerConfig;
+import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.beans.value.ChangeListener;
@@ -119,11 +125,27 @@ public class LobbyController {
 
     @FXML
     private void onStartGame() {
+        java.util.List<PlayerConfig> configs = new java.util.ArrayList<>();
         for (PlayerRow row : rows) {
+            String name = row.nameField.getText().isBlank() ? "Player " + row.index : row.nameField.getText();
+            configs.add(new PlayerConfig(name, toEngineColor(row.selectedColor)));
             System.out.printf("[Lobby] Player %d: %s (%s)%n",
-                row.index, row.nameField.getText(), row.selectedColor);
+                row.index, name, row.selectedColor);
         }
+        GameEngine engine = new GameEngine();
+        engine.startNewGame(new GameConfig(configs, BoardMode.FIXED, false));
+        GameSession.setEngine(engine);
         Navigator.goTo("/fxml/game.fxml");
+    }
+
+    private static PlayerColor toEngineColor(String css) {
+        return switch (css) {
+            case "red"   -> PlayerColor.RED;
+            case "blue"  -> PlayerColor.BLUE;
+            case "gold"  -> PlayerColor.YELLOW;
+            case "white" -> PlayerColor.GREEN;
+            default -> PlayerColor.RED;
+        };
     }
 
     private final class PlayerRow {

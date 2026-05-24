@@ -1,5 +1,12 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.engine.GameEngine;
+import com.bananarepublic.engine.GameState;
+import com.bananarepublic.model.player.Player;
+import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.service.dice.DiceMode;
+import com.bananarepublic.service.dice.DiceRoll;
+import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.HexBoard;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
@@ -40,12 +47,68 @@ public class GameController {
     public void initialize() {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
         boardHolder.getChildren().add(new HexBoard(720, 600));
-        installPlayers();
-        installTeamSidebar();
-        installLog();
+        if (GameSession.hasEngine()) {
+            installFromEngine();
+        } else {
+            installPlayers();
+            installTeamSidebar();
+            installLog();
+        }
         installFrame();
         installResourceBar();
         startTimer();
+    }
+
+    private void installFromEngine() {
+        GameState state = GameSession.engine().getState();
+        Player active = state.getCurrentPlayer();
+        for (Player p : state.getPlayers()) {
+            boolean isActive = p == active;
+            topStrip.getChildren().add(new PlayerBanner(
+                p.getName(), cssColor(p.getColor()),
+                0, p.getTotalResourceCards(), p.getPlayedKnightCount(),
+                isActive, isActive));
+
+            addTeamRow(p.getName(), cssColor(p.getColor()),
+                0,
+                p.getOwnedPipes().size(),
+                ownedPosts(p),
+                ownedLabs(p),
+                p.getTotalResourceCards(),
+                0,
+                isActive);
+        }
+        log("[Engine] " + active.getName() + "'s turn.");
+    }
+
+    private static int ownedPosts(Player p) {
+        return (int) p.getOwnedBuildings().stream()
+            .filter(b -> b.getType() == com.bananarepublic.model.building.BuildingType.MONITORING_POST)
+            .count();
+    }
+
+    private static int ownedLabs(Player p) {
+        return (int) p.getOwnedBuildings().stream()
+            .filter(b -> b.getType() == com.bananarepublic.model.building.BuildingType.LABORATORY)
+            .count();
+    }
+
+    private static String cssColor(PlayerColor c) {
+        return switch (c) {
+            case RED    -> "red";
+            case BLUE   -> "blue";
+            case YELLOW -> "gold";
+            case GREEN  -> "white";
+        };
+    }
+
+    private void log(String entry) {
+        HBox row = new HBox(6);
+        row.getStyleClass().add("log-entry");
+        Label text = new Label(entry);
+        text.getStyleClass().add("log-text");
+        row.getChildren().add(text);
+        logbook.getChildren().add(0, row);
     }
 
     private void installResourceBar() {
@@ -216,10 +279,38 @@ public class GameController {
     @FXML private void onTrade()      { Navigator.showOverlay("/fxml/trade_dialog.fxml"); }
     @FXML private void onCards()      { Navigator.showOverlay("/fxml/cards_dialog.fxml"); }
     @FXML private void onSettings()   { Navigator.showOverlay("/fxml/settings_dialog.fxml"); }
-    @FXML private void onRollDice()   { System.out.println("[Game] roll dice"); }
+    @FXML
+    private void onRollDice() {
+        if (!GameSession.hasEngine()) {
+            System.out.println("[Game] roll dice (no engine)");
+            return;
+        }
+        GameEngine engine = GameSession.engine();
+        try {
+            DiceRoll roll = engine.rollDice(DiceMode.RANDOM, null);
+            log("[Roll] " + engine.getState().getCurrentPlayer().getName()
+                + " rolled " + roll.getFirst() + "+" + roll.getSecond()
+                + " = " + roll.total() + ".");
+        } catch (RuntimeException ex) {
+            log("[Roll] " + ex.getMessage());
+        }
+    }
+
     @FXML
     private void onEndTurn() {
         if (timer != null) timer.stop();
+        if (GameSession.hasEngine()) {
+            GameEngine engine = GameSession.engine();
+            try {
+                engine.endTurn();
+                if (engine.getState().isGameOver()) {
+                    Navigator.goTo("/fxml/game_result.fxml");
+                    return;
+                }
+            } catch (RuntimeException ex) {
+                System.out.println("[EndTurn] " + ex.getMessage());
+            }
+        }
         Navigator.goTo("/fxml/turn_transition.fxml");
     }
 }
