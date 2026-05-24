@@ -58,26 +58,7 @@
               AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40"
               AnchorPane.bottomAnchor="40">
 
-            <HBox fx:id="resBar" styleClass="res-bar" alignment="CENTER_LEFT">
-                <StackPane styleClass="res-chip-vp">
-                    <Label text="5"/>
-                </StackPane>
-                <HBox styleClass="res-chip">
-                    <Label text="🌲"/><Label text="2"/>
-                </HBox>
-                <HBox styleClass="res-chip">
-                    <Label text="🧱"/><Label text="1"/>
-                </HBox>
-                <HBox styleClass="res-chip">
-                    <Label text="🌾"/><Label text="2"/>
-                </HBox>
-                <HBox styleClass="res-chip">
-                    <Label text="⛏"/><Label text="1"/>
-                </HBox>
-                <HBox styleClass="res-chip">
-                    <Label text="🍌"/><Label text="1"/>
-                </HBox>
-            </HBox>
+            <HBox fx:id="resBar" styleClass="res-bar" alignment="CENTER_LEFT"/>
 
             <Region HBox.hgrow="ALWAYS"/>
 

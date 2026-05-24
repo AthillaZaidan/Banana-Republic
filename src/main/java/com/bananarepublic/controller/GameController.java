@@ -4,6 +4,7 @@ import com.bananarepublic.ui.HexBoard;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.PlayerBanner;
+import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.WoodenFrame;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -26,6 +27,7 @@ public class GameController {
     @FXML private Pane frameLayer;
     @FXML private StackPane boardHolder;
     @FXML private HBox topStrip;
+    @FXML private HBox resBar;
     @FXML private VBox teamList;
     @FXML private VBox logbook;
     @FXML private Label timerValue;
@@ -42,7 +44,31 @@ public class GameController {
         installTeamSidebar();
         installLog();
         installFrame();
+        installResourceBar();
         startTimer();
+    }
+
+    private void installResourceBar() {
+        StackPane vp = new StackPane(new Label("5"));
+        vp.getStyleClass().add("res-chip-vp");
+        resBar.getChildren().add(vp);
+
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.WOOD,   2));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.BRICK,  1));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.WHEAT,  2));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.ORE,    1));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.BANANA, 1));
+    }
+
+    private HBox resChip(ResourceIcons.Kind kind, int count) {
+        HBox chip = new HBox(6);
+        chip.getStyleClass().add("res-chip");
+        chip.setAlignment(Pos.CENTER_LEFT);
+        StackPane iconSlot = new StackPane(ResourceIcons.of(kind));
+        iconSlot.setMinSize(22, 22); iconSlot.setMaxSize(22, 22);
+        Label countLabel = new Label(String.valueOf(count));
+        chip.getChildren().addAll(iconSlot, countLabel);
+        return chip;
     }
 
     private void installPlayers() {
