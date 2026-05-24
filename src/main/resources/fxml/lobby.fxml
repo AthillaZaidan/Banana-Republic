@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.collections.FXCollections?>
+<?import java.lang.Integer?>
+
+<StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.LobbyController"
+           styleClass="bg-parchment" prefWidth="1280" prefHeight="800">
+
+    <Pane fx:id="livingLayer" pickOnBounds="false"/>
+
+    <VBox spacing="20">
+        <padding><Insets top="40" right="40" bottom="40" left="40"/></padding>
+
+        <HBox alignment="BOTTOM_LEFT">
+            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label styleClass="eyebrow" text="L2 · LOBBY"/>
+                <Label styleClass="wordmark" text="NEW GAME SETUP" style="-fx-font-size: 30px;"/>
+            </VBox>
+            <Button fx:id="backBtn" styleClass="btn,btn-outline" text="←  Main Menu"
+                    onAction="#onBack" style="-fx-padding: 10 16; -fx-font-size: 12px;"/>
+        </HBox>
+
+        <GridPane hgap="22" VBox.vgrow="ALWAYS">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="56"/>
+                <ColumnConstraints percentWidth="44"/>
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints vgrow="ALWAYS"/>
+            </rowConstraints>
+
+            <VBox styleClass="card" spacing="12" GridPane.columnIndex="0">
+                <padding><Insets top="28" right="28" bottom="28" left="28"/></padding>
+
+                <HBox alignment="CENTER_LEFT">
+                    <Label styleClass="plaque" text="SESSION SETUP"/>
+                </HBox>
+
+                <Region prefHeight="8"/>
+
+                <HBox alignment="CENTER_LEFT" spacing="12">
+                    <Label text="Number of Players"
+                           style="-fx-font-weight: bold; -fx-font-size: 14px;"
+                           HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                    <ComboBox fx:id="playerCountBox" value="4" prefWidth="100">
+                        <items>
+                            <FXCollections fx:factory="observableArrayList">
+                                <Integer fx:value="3"/>
+                                <Integer fx:value="4"/>
+                            </FXCollections>
+                        </items>
+                    </ComboBox>
+                </HBox>
+
+                <Label styleClass="eyebrow" text="PLAYERS' NAMES">
+                    <VBox.margin><Insets top="10" bottom="2"/></VBox.margin>
+                </Label>
+
+                <VBox fx:id="playerRows" spacing="8"/>
+            </VBox>
+
+            <VBox styleClass="card" spacing="12" GridPane.columnIndex="1">
+                <padding><Insets top="28" right="28" bottom="28" left="28"/></padding>
+
+                <HBox alignment="CENTER_LEFT">
+                    <Label styleClass="plaque" text="PLUGIN MATRIX"/>
+                </HBox>
+
+                <Region prefHeight="8"/>
+
+                <Label styleClass="eyebrow" text="ENVIRONMENT DATA"/>
+                <HBox styleClass="plugin-tile">
+                    <StackPane styleClass="plugin-tile-icon">
+                        <Label text="⚓"/>
+                    </StackPane>
+                    <VBox HBox.hgrow="ALWAYS" spacing="2">
+                        <Label text="Map Plugin" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                        <Label fx:id="mapPluginLabel" styleClass="text-mute"
+                               text="Override the default 19-hex layout."/>
+                    </VBox>
+                    <Button styleClass="btn,btn-outline" text="Browse"
+                            onAction="#onBrowseMapPlugin"
+                            style="-fx-padding: 10 14; -fx-font-size: 12px;"/>
+                </HBox>
+
+                <Label styleClass="eyebrow" text="AUTOMATON INTELLIGENCE">
+                    <VBox.margin><Insets top="12"/></VBox.margin>
+                </Label>
+                <HBox styleClass="plugin-tile">
+                    <StackPane styleClass="plugin-tile-icon">
+                        <Label text="🤖"/>
+                    </StackPane>
+                    <VBox HBox.hgrow="ALWAYS" spacing="2">
+                        <Label text="Bot Plugin" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                        <Label fx:id="botPluginLabel" styleClass="text-mute"
+                               text="Replace empty seats with AI players."/>
+                    </VBox>
+                    <Button styleClass="btn,btn-outline" text="Browse"
+                            onAction="#onBrowseBotPlugin"
+                            style="-fx-padding: 10 14; -fx-font-size: 12px;"/>
+                </HBox>
+
+                <Region VBox.vgrow="ALWAYS"/>
+
+                <Label styleClass="warn-band"
+                       text="Plugins are loaded as .jar via the ServiceLoader API."
+                       maxWidth="Infinity"/>
+            </VBox>
+        </GridPane>
+
+        <HBox alignment="CENTER_RIGHT">
+            <Button fx:id="startBtn" styleClass="btn,btn-gold" text="START GAME  ▶"
+                    onAction="#onStartGame"
+                    style="-fx-padding: 16 38; -fx-font-size: 15px;"/>
+        </HBox>
+    </VBox>
+</StackPane>
