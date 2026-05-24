@@ -58,10 +58,133 @@ public final class HexBoard extends Pane {
         setMinSize(width, height);
         setMaxSize(width, height);
         getTransforms().add(new Rotate(14, width / 2, height / 2, 0, Rotate.X_AXIS));
+        buildOceanDecor(width, height);
         buildHarbors(width, height);
         buildIsland(width, height);
         buildHexes(width, height);
         buildBuildings(width, height);
+    }
+
+    private void buildOceanDecor(double w, double h) {
+        double cx = w / 2;
+        double cy = h / 2;
+        drawMiniIsland(cx - w * 0.42, cy - h * 0.40);
+        drawMiniIsland(cx + w * 0.40, cy + h * 0.38);
+        drawSailboat(cx - w * 0.38, cy + h * 0.12);
+        drawSailboat(cx + w * 0.42, cy - h * 0.18);
+        drawSubmarine(cx + w * 0.38, cy + h * 0.22);
+        drawBananaBoat(cx - w * 0.38, cy + h * 0.32);
+    }
+
+    private void drawMiniIsland(double cx, double cy) {
+        Ellipse sand = new Ellipse(cx, cy + 6, 32, 6);
+        sand.setFill(Color.web("#f1d588"));
+        sand.setStroke(Color.web("#a67d36"));
+        sand.setStrokeWidth(1.4);
+        getChildren().add(sand);
+
+        Line trunk = new Line(cx, cy + 4, cx, cy - 14);
+        trunk.setStroke(Color.web("#5a3a1c"));
+        trunk.setStrokeWidth(2);
+        trunk.setStrokeLineCap(StrokeLineCap.ROUND);
+        getChildren().add(trunk);
+
+        for (double a : new double[]{-1.1, -0.4, 0.3, 1.0}) {
+            Line frond = new Line(cx, cy - 14,
+                cx + Math.cos(a) * 14, cy - 14 - Math.abs(Math.sin(a)) * 10);
+            frond.setStroke(Color.web("#1f7a3c"));
+            frond.setStrokeWidth(2.5);
+            frond.setStrokeLineCap(StrokeLineCap.ROUND);
+            getChildren().add(frond);
+        }
+    }
+
+    private void drawSailboat(double cx, double cy) {
+        Polygon hull = new Polygon(
+            cx - 14, cy + 2,
+            cx + 14, cy + 2,
+            cx + 10, cy + 8,
+            cx - 10, cy + 8
+        );
+        hull.setFill(Color.web("#7c4a26"));
+        hull.setStroke(Color.web("#3a1d0a"));
+        hull.setStrokeWidth(1.2);
+        getChildren().add(hull);
+
+        Line mast = new Line(cx, cy + 2, cx, cy - 16);
+        mast.setStroke(Color.web("#3a1d0a"));
+        mast.setStrokeWidth(1.4);
+        getChildren().add(mast);
+
+        Polygon sail = new Polygon(
+            cx, cy - 14,
+            cx + 12, cy - 2,
+            cx, cy - 2
+        );
+        sail.setFill(Color.web("#fff5d6"));
+        sail.setStroke(Color.web("#3a1d0a"));
+        sail.setStrokeWidth(1);
+        getChildren().add(sail);
+
+        Polygon flag = new Polygon(
+            cx, cy - 18,
+            cx + 6, cy - 16,
+            cx, cy - 14
+        );
+        flag.setFill(Color.web("#e64b3f"));
+        getChildren().add(flag);
+    }
+
+    private void drawSubmarine(double cx, double cy) {
+        Ellipse body = new Ellipse(cx, cy, 22, 8);
+        body.setFill(Color.web("#ffd23d"));
+        body.setStroke(Color.web("#8a5a0a"));
+        body.setStrokeWidth(1.2);
+        getChildren().add(body);
+
+        javafx.scene.shape.Rectangle tower = new javafx.scene.shape.Rectangle(cx - 4, cy - 10, 8, 6);
+        tower.setArcWidth(2); tower.setArcHeight(2);
+        tower.setFill(Color.web("#ffd23d"));
+        tower.setStroke(Color.web("#8a5a0a"));
+        tower.setStrokeWidth(1);
+        getChildren().add(tower);
+
+        Circle window = new Circle(cx - 8, cy, 2, Color.web("#1d6a93"));
+        window.setStroke(Color.web("#8a5a0a"));
+        window.setStrokeWidth(0.8);
+        getChildren().add(window);
+
+        Circle window2 = new Circle(cx + 6, cy, 2, Color.web("#1d6a93"));
+        window2.setStroke(Color.web("#8a5a0a"));
+        window2.setStrokeWidth(0.8);
+        getChildren().add(window2);
+
+        Line periscope = new Line(cx, cy - 10, cx, cy - 16);
+        periscope.setStroke(Color.web("#3a3a34"));
+        periscope.setStrokeWidth(1.4);
+        getChildren().add(periscope);
+    }
+
+    private void drawBananaBoat(double cx, double cy) {
+        Polygon hull = new Polygon(
+            cx - 16, cy + 2,
+            cx + 16, cy + 2,
+            cx + 12, cy + 9,
+            cx - 12, cy + 9
+        );
+        hull.setFill(Color.web("#5a3a1c"));
+        hull.setStroke(Color.web("#2a1a05"));
+        hull.setStrokeWidth(1.2);
+        getChildren().add(hull);
+
+        for (int i = -1; i <= 1; i++) {
+            Ellipse banana = new Ellipse(cx + i * 6, cy - 3, 4, 2);
+            banana.setFill(Color.web("#ffd23d"));
+            banana.setStroke(Color.web("#8a5a0a"));
+            banana.setStrokeWidth(0.7);
+            banana.setRotate(-15 + i * 12);
+            getChildren().add(banana);
+        }
     }
 
     private void buildIsland(double w, double h) {
