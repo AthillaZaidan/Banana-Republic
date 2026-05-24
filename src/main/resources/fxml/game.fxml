@@ -27,6 +27,9 @@
               AnchorPane.topAnchor="36" AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40">
         </HBox>
 
+        <Label styleClass="map-plaque" text="PETA KEPULAUAN BANANA REPUBLIC"
+               AnchorPane.topAnchor="108" AnchorPane.leftAnchor="120"/>
+
         <VBox spacing="10" AnchorPane.leftAnchor="40" AnchorPane.topAnchor="240">
             <Button styleClass="btn,btn-icon,btn-icon-teal" text="📊" onAction="#onScoreboard"/>
             <Button styleClass="btn,btn-icon"             text="🔁" onAction="#onTrade"/>

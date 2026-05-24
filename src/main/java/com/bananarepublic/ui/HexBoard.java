@@ -5,15 +5,17 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Ellipse;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
-
-import java.util.List;
 
 public final class HexBoard extends Pane {
     private static final double HEX_SIZE = 46;
@@ -39,11 +41,24 @@ public final class HexBoard extends Pane {
         6, 9, 11,
     };
 
+    private static final Harbor[] HARBORS = {
+        new Harbor("Umum",    "3:1", Color.web("#bcd6df"), 0,    -360),
+        new Harbor("Pisang",  "2:1", Color.web("#ffd23d"), 260,  -240),
+        new Harbor("Kayu",    "2:1", Color.web("#3a9648"), 340,  0),
+        new Harbor("Bijih",   "2:1", Color.web("#9a9a92"), 260,  240),
+        new Harbor("Gandum",  "2:1", Color.web("#ffd864"), 0,    360),
+        new Harbor("Bata",    "2:1", Color.web("#d56a3a"), -260, 240),
+        new Harbor("Umum",    "3:1", Color.web("#bcd6df"), -340, 0),
+        new Harbor("Pisang",  "2:1", Color.web("#ffd23d"), -260, -240),
+        new Harbor("Umum",    "3:1", Color.web("#bcd6df"), 150,  -310),
+    };
+
     public HexBoard(double width, double height) {
         setPrefSize(width, height);
         setMinSize(width, height);
         setMaxSize(width, height);
         getTransforms().add(new Rotate(14, width / 2, height / 2, 0, Rotate.X_AXIS));
+        buildHarbors(width, height);
         buildIsland(width, height);
         buildHexes(width, height);
     }
@@ -51,7 +66,11 @@ public final class HexBoard extends Pane {
     private void buildIsland(double w, double h) {
         double cx = w / 2;
         double cy = h / 2;
-        javafx.scene.shape.Ellipse ring = new javafx.scene.shape.Ellipse(cx, cy + 8, 380, 320);
+        Ellipse ringShadow = new Ellipse(cx, cy + 16, 380, 320);
+        ringShadow.setFill(Color.web("#8a5a14", 0.35));
+        getChildren().add(ringShadow);
+
+        Ellipse ring = new Ellipse(cx, cy + 8, 380, 320);
         ring.setFill(Color.web("#e8c882"));
         ring.setStroke(Color.web("#a67d36"));
         ring.setStrokeWidth(3);
@@ -75,6 +94,59 @@ public final class HexBoard extends Pane {
         }
     }
 
+    private void buildHarbors(double w, double h) {
+        double cx = w / 2;
+        double cy = h / 2;
+        for (Harbor harbor : HARBORS) {
+            drawHarbor(cx + harbor.dx, cy + harbor.dy, harbor);
+        }
+    }
+
+    private void drawHarbor(double cx, double cy, Harbor h) {
+        Rectangle dock = new Rectangle(cx - 26, cy - 8, 52, 16);
+        dock.setArcWidth(4); dock.setArcHeight(4);
+        dock.setFill(Color.web("#a35a14"));
+        dock.setStroke(Color.web("#5a2f0a"));
+        dock.setStrokeWidth(1.5);
+        dock.setEffect(new DropShadow(4, Color.color(0, 0, 0, 0.4)));
+        getChildren().add(dock);
+
+        for (int i = 0; i < 4; i++) {
+            Line plank = new Line(cx - 22 + i * 14, cy - 6, cx - 22 + i * 14, cy + 6);
+            plank.setStroke(Color.web("#5a2f0a", 0.6));
+            plank.setStrokeWidth(1);
+            getChildren().add(plank);
+        }
+
+        Rectangle post = new Rectangle(cx - 2, cy - 22, 4, 14);
+        post.setFill(Color.web("#5a2f0a"));
+        getChildren().add(post);
+
+        Rectangle sign = new Rectangle(cx - 22, cy - 30, 44, 18);
+        sign.setArcWidth(4); sign.setArcHeight(4);
+        sign.setFill(h.color);
+        sign.setStroke(Color.web("#3a1d0a"));
+        sign.setStrokeWidth(1.2);
+        sign.setEffect(new DropShadow(3, Color.color(0, 0, 0, 0.35)));
+        getChildren().add(sign);
+
+        Text label = new Text(h.label);
+        label.setFont(Font.font("Inter", FontWeight.BOLD, 8));
+        label.setFill(Color.web("#2a1a05"));
+        double lw = label.getLayoutBounds().getWidth();
+        label.setX(cx - lw / 2);
+        label.setY(cy - 20);
+        getChildren().add(label);
+
+        Text ratio = new Text(h.ratio);
+        ratio.setFont(Font.font("Inter", FontWeight.BOLD, 10));
+        ratio.setFill(Color.web("#2a1a05"));
+        double rw = ratio.getLayoutBounds().getWidth();
+        ratio.setX(cx - rw / 2);
+        ratio.setY(cy - 10);
+        getChildren().add(ratio);
+    }
+
     private void drawHex(double cx, double cy, Terrain terrain, Integer number) {
         Polygon side = makeHex(cx, cy + 6, HEX_SIZE);
         side.setFill(terrain.edge);
@@ -88,6 +160,8 @@ public final class HexBoard extends Pane {
         hex.setStrokeWidth(2);
         hex.setStrokeLineJoin(StrokeLineJoin.ROUND);
         getChildren().add(hex);
+
+        drawTerrainGlyph(cx, cy, terrain);
 
         if (number != null) {
             Circle token = new Circle(cx, cy, 14);
@@ -119,6 +193,122 @@ public final class HexBoard extends Pane {
             label.setY(cy + 5);
             getChildren().add(label);
         }
+
+        Text terrainLabel = new Text(terrain.label);
+        terrainLabel.setFont(Font.font("Inter", FontWeight.BOLD, 7));
+        terrainLabel.setFill(Color.web("#2a1a05", 0.7));
+        double tw = terrainLabel.getLayoutBounds().getWidth();
+        terrainLabel.setX(cx - tw / 2);
+        terrainLabel.setY(cy + 24);
+        getChildren().add(terrainLabel);
+    }
+
+    private void drawTerrainGlyph(double cx, double cy, Terrain terrain) {
+        switch (terrain) {
+            case HUTAN -> drawPalm(cx, cy);
+            case KEBUN -> drawBananaTree(cx, cy);
+            case BUKIT -> drawRedMountain(cx, cy);
+            case TAMBANG -> drawGreyMountain(cx, cy);
+            case LADANG -> drawWheat(cx, cy);
+            case GURUN -> {}
+        }
+    }
+
+    private void drawPalm(double cx, double cy) {
+        Group g = new Group();
+        Line trunk = new Line(cx - 18, cy + 10, cx - 18, cy - 8);
+        trunk.setStroke(Color.web("#5a3a1c"));
+        trunk.setStrokeWidth(2);
+        trunk.setStrokeLineCap(StrokeLineCap.ROUND);
+        g.getChildren().add(trunk);
+        for (double a : new double[]{-1.0, -0.4, 0.3, 1.0}) {
+            Line frond = new Line(cx - 18, cy - 8,
+                cx - 18 + Math.cos(a) * 12, cy - 8 - Math.abs(Math.sin(a)) * 10);
+            frond.setStroke(Color.web("#155525"));
+            frond.setStrokeWidth(2.5);
+            frond.setStrokeLineCap(StrokeLineCap.ROUND);
+            g.getChildren().add(frond);
+        }
+        g.setOpacity(0.85);
+        getChildren().add(g);
+    }
+
+    private void drawBananaTree(double cx, double cy) {
+        Group g = new Group();
+        Line trunk = new Line(cx + 16, cy + 10, cx + 16, cy - 4);
+        trunk.setStroke(Color.web("#5a3a1c"));
+        trunk.setStrokeWidth(2.5);
+        g.getChildren().add(trunk);
+        for (double a : new double[]{-0.9, -0.2, 0.5, 1.1}) {
+            Ellipse leaf = new Ellipse(cx + 16 + Math.cos(a) * 8,
+                cy - 4 - Math.abs(Math.sin(a)) * 6, 7, 3);
+            leaf.setFill(Color.web("#2a8a3a"));
+            leaf.setRotate(Math.toDegrees(a));
+            g.getChildren().add(leaf);
+        }
+        Ellipse bunch = new Ellipse(cx + 14, cy + 2, 4, 6);
+        bunch.setFill(Color.web("#ffd23d"));
+        bunch.setStroke(Color.web("#8a5a0a"));
+        bunch.setStrokeWidth(0.8);
+        g.getChildren().add(bunch);
+        g.setOpacity(0.85);
+        getChildren().add(g);
+    }
+
+    private void drawRedMountain(double cx, double cy) {
+        Polygon peak = new Polygon(
+            cx - 18, cy + 12,
+            cx - 6,  cy - 6,
+            cx + 2,  cy + 4,
+            cx + 10, cy - 2,
+            cx + 20, cy + 12
+        );
+        peak.setFill(Color.web("#a83a1f"));
+        peak.setStroke(Color.web("#5a1e0a"));
+        peak.setStrokeWidth(1.2);
+        peak.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        peak.setOpacity(0.85);
+        getChildren().add(peak);
+    }
+
+    private void drawGreyMountain(double cx, double cy) {
+        Polygon peak = new Polygon(
+            cx - 20, cy + 12,
+            cx - 6,  cy - 8,
+            cx + 4,  cy + 2,
+            cx + 12, cy - 4,
+            cx + 22, cy + 12
+        );
+        peak.setFill(Color.web("#7e7e76"));
+        peak.setStroke(Color.web("#3a3a34"));
+        peak.setStrokeWidth(1.2);
+        peak.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        peak.setOpacity(0.9);
+        getChildren().add(peak);
+
+        Polygon snow = new Polygon(
+            cx - 8, cy - 4,
+            cx - 6, cy - 8,
+            cx - 3, cy - 4
+        );
+        snow.setFill(Color.WHITE);
+        snow.setOpacity(0.85);
+        getChildren().add(snow);
+    }
+
+    private void drawWheat(double cx, double cy) {
+        for (int i = 0; i < 3; i++) {
+            double x = cx - 12 + i * 10;
+            Line stem = new Line(x, cy + 10, x, cy - 6);
+            stem.setStroke(Color.web("#8a5a14"));
+            stem.setStrokeWidth(1.2);
+            stem.setOpacity(0.85);
+            getChildren().add(stem);
+            Ellipse head = new Ellipse(x, cy - 7, 3, 2);
+            head.setFill(Color.web("#e2b430"));
+            head.setOpacity(0.9);
+            getChildren().add(head);
+        }
     }
 
     private static Polygon makeHex(double cx, double cy, double r) {
@@ -131,17 +321,21 @@ public final class HexBoard extends Pane {
     }
 
     private enum Terrain {
-        HUTAN ("#3a9648", "#175a25"),
-        BUKIT ("#d56a3a", "#7a2f12"),
-        LADANG("#ffd864", "#c2901c"),
-        TAMBANG("#9a9a92", "#4a4a44"),
-        KEBUN ("#6cbf48", "#2f6e1f"),
-        GURUN ("#f1d588", "#b58b3a");
+        HUTAN  ("#3a9648", "#175a25", "Hutan"),
+        BUKIT  ("#d56a3a", "#7a2f12", "Bukit"),
+        LADANG ("#ffd864", "#c2901c", "Ladang"),
+        TAMBANG("#9a9a92", "#4a4a44", "Tambang"),
+        KEBUN  ("#6cbf48", "#2f6e1f", "Kebun Pisang"),
+        GURUN  ("#f1d588", "#b58b3a", "Gurun");
 
         final Color fill, edge;
-        Terrain(String fill, String edge) {
+        final String label;
+        Terrain(String fill, String edge, String label) {
             this.fill = Color.web(fill);
             this.edge = Color.web(edge);
+            this.label = label;
         }
     }
+
+    private record Harbor(String label, String ratio, Color color, double dx, double dy) {}
 }

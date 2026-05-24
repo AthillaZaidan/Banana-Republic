@@ -589,6 +589,20 @@
 .wood-frame-edge-v {
     -fx-pref-width: 22;
 }
+.map-plaque {
+    -fx-background-color: linear-gradient(to bottom, #f6b35a 0%, #d57f1c 100%);
+    -fx-border-color: #6a3a0c;
+    -fx-border-width: 2;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-padding: 8 18;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-family: "Inter", "System";
+    -fx-font-size: 13px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 20, 40, 0.4), 20, 0.05, 0, 8);
+}
+
 .wood-frame-rivet {
     -fx-min-width: 14; -fx-min-height: 14;
     -fx-max-width: 14; -fx-max-height: 14;
