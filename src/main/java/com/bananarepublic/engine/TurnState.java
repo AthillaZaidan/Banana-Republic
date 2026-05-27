@@ -9,6 +9,8 @@ public class TurnState {
     private boolean hasRolledDice;
     private boolean hasPlayedDevelopmentCard;
     private int remainingSeconds;
+    private boolean waitingForSetupPipe;
+    private String setupPostIntersectionId;
 
     public TurnState(int currentPlayerIndex, TurnPhase phase) {
         this.currentPlayerIndex = currentPlayerIndex;
@@ -66,5 +68,21 @@ public class TurnState {
         }
 
         this.remainingSeconds = remainingSeconds;
+    }
+
+    public boolean isWaitingForSetupPipe() {
+        return waitingForSetupPipe;
+    }
+
+    void setWaitingForSetupPipe(boolean waitingForSetupPipe) {
+        this.waitingForSetupPipe = waitingForSetupPipe;
+    }
+
+    public String getSetupPostIntersectionId() {
+        return setupPostIntersectionId;
+    }
+
+    void setSetupPostIntersectionId(String setupPostIntersectionId) {
+        this.setupPostIntersectionId = setupPostIntersectionId;
     }
 }
