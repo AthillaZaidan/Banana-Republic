@@ -16,6 +16,8 @@ public class GameState {
     private final TurnState turnState;
     private String nimonTileId;
     private Player winner;
+    private Player longestRoadHolder;
+    private Player largestArmyHolder;
 
     public GameState(Board board, List<Player> players, Bank bank, TurnState turnState) {
         this.board = Objects.requireNonNull(board, "Board cannot be null");
@@ -58,6 +60,22 @@ public class GameState {
 
     public boolean isGameOver() {
         return winner != null;
+    }
+
+    public Optional<Player> getLongestRoadHolder() {
+        return Optional.ofNullable(longestRoadHolder);
+    }
+
+    public void setLongestRoadHolder(Player longestRoadHolder) {
+        this.longestRoadHolder = longestRoadHolder;
+    }
+
+    public Optional<Player> getLargestArmyHolder() {
+        return Optional.ofNullable(largestArmyHolder);
+    }
+
+    public void setLargestArmyHolder(Player largestArmyHolder) {
+        this.largestArmyHolder = largestArmyHolder;
     }
 
     public String getNimonTileId() {
