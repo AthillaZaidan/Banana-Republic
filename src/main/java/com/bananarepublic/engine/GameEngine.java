@@ -9,6 +9,8 @@ import com.bananarepublic.service.dice.DiceMode;
 import com.bananarepublic.service.dice.DiceRoll;
 import com.bananarepublic.service.dice.DiceService;
 import com.bananarepublic.service.resource.ResourceProductionService;
+import com.bananarepublic.service.setup.SetupService;
+import com.bananarepublic.service.timer.TurnTimerService;
 import com.bananarepublic.service.victory.VictoryService;
 
 import java.util.ArrayList;
@@ -20,12 +22,14 @@ public class GameEngine {
     private final DiceService diceService;
     private final BuildService buildService;
     private final ResourceProductionService resourceProductionService;
+    private final SetupService setupService;
+    private final TurnTimerService timerService;
     private final VictoryService victoryService;
     private GameState state;
 
     public GameEngine() {
         this(new TurnManager(), new DiceService(), new BuildService(),
-                new ResourceProductionService(), new VictoryService());
+                new ResourceProductionService(), new SetupService(), new TurnTimerService(), new VictoryService());
     }
 
     public GameEngine(
@@ -33,12 +37,16 @@ public class GameEngine {
             DiceService diceService,
             BuildService buildService,
             ResourceProductionService resourceProductionService,
+            SetupService setupService,
+            TurnTimerService timerService,
             VictoryService victoryService
     ) {
         this.turnManager = Objects.requireNonNull(turnManager, "Turn manager cannot be null");
         this.diceService = Objects.requireNonNull(diceService, "Dice service cannot be null");
         this.buildService = Objects.requireNonNull(buildService, "Build service cannot be null");
         this.resourceProductionService = Objects.requireNonNull(resourceProductionService, "Resource production service cannot be null");
+        this.setupService = Objects.requireNonNull(setupService, "Setup service cannot be null");
+        this.timerService = Objects.requireNonNull(timerService, "Timer service cannot be null");
         this.victoryService = Objects.requireNonNull(victoryService, "Victory service cannot be null");
     }
 
@@ -53,7 +61,7 @@ public class GameEngine {
         Bank bank = new Bank();
         List<Player> players = createPlayers(config);
 
-        turnManager.startNormalTurns(players);
+        turnManager.startSetup(players);
         state = new GameState(board, players, bank, turnManager.getTurnState());
     }
 
@@ -65,7 +73,7 @@ public class GameEngine {
         if (roll.total() == 7) {
             turnManager.moveToPhase(TurnPhase.MOVE_NIMON_UNGU);
         } else {
-            resourceProductionService.produce(state, roll.total());
+            produceResources(roll.total());
             turnManager.moveToPhase(TurnPhase.TRADE_BUILD);
         }
 
@@ -75,40 +83,108 @@ public class GameEngine {
     public void buildRoad(String playerId, String pathId) {
         requireStarted();
         buildService.buildPipe(state, playerId, pathId, false);
+        updateSpecialCards();
         updateWinner();
     }
 
     public void buildRoad(String playerId, String pathId, boolean setupBuild) {
         requireStarted();
         buildService.buildPipe(state, playerId, pathId, setupBuild);
+        updateSpecialCards();
         updateWinner();
     }
 
     public void buildWatchPost(String playerId, String intersectionId) {
         requireStarted();
         buildService.buildMonitoringPost(state, playerId, intersectionId, false);
+        updateSpecialCards();
         updateWinner();
     }
 
     public void buildWatchPost(String playerId, String intersectionId, boolean setupBuild) {
         requireStarted();
         buildService.buildMonitoringPost(state, playerId, intersectionId, setupBuild);
+        updateSpecialCards();
         updateWinner();
     }
 
     public void upgradeLaboratory(String playerId, String intersectionId) {
         requireStarted();
         buildService.upgradeLaboratory(state, playerId, intersectionId);
+        updateSpecialCards();
         updateWinner();
     }
 
     public void endTurn() {
         requireStarted();
+        timerService.stop();
         updateWinner();
 
         if (!state.isGameOver()) {
             turnManager.endTurn();
         }
+    }
+
+    public void placeSetupWatchPost(String playerId, String intersectionId) {
+        requireStarted();
+        requireSetupPlayer(playerId);
+
+        buildService.buildMonitoringPost(state, playerId, intersectionId, true);
+        if (state.getTurnState().getSetupRound() == 2) {
+            setupService.grantInitialResources(state, playerId, intersectionId);
+        }
+        turnManager.markSetupPostPlaced(intersectionId);
+    }
+
+    public void placeSetupRoad(String playerId, String pathId) {
+        requireStarted();
+        requireSetupPlayer(playerId);
+        String setupPostIntersectionId = state.getTurnState().getSetupPostIntersectionId();
+
+        if (!setupService.isSetupPipeConnectedToPost(state, pathId, setupPostIntersectionId)) {
+            throw new IllegalArgumentException("Setup pipe must connect to the just placed monitoring post");
+        }
+
+        buildService.buildPipe(state, playerId, pathId, true);
+        updateSpecialCards();
+        turnManager.completeSetupPipeAndAdvance();
+    }
+
+    public void startTurnTimer(int seconds) {
+        requireStarted();
+
+        if (state.getTurnState().getPhase() != TurnPhase.TRADE_BUILD) {
+            throw new IllegalStateException("Timer can only start during trade/build phase");
+        }
+
+        state.getTurnState().setRemainingSeconds(seconds);
+        timerService.start(seconds, () -> {
+            if (!state.isGameOver() && state.getTurnState().getPhase() == TurnPhase.TRADE_BUILD) {
+                endTurn();
+            }
+        });
+    }
+
+    public TurnTimerService getTimerService() {
+        return timerService;
+    }
+
+    public void produceResources(int diceTotal) {
+        requireStarted();
+        resourceProductionService.produce(state, diceTotal);
+    }
+
+    public void recordKnightPlayed(String playerId) {
+        requireStarted();
+        state.getPlayerById(playerId).incrementPlayedKnightCount();
+        updateSpecialCards();
+        updateWinner();
+    }
+
+    public void checkVictory() {
+        requireStarted();
+        updateSpecialCards();
+        updateWinner();
     }
 
     public GameState getState() {
@@ -130,6 +206,20 @@ public class GameEngine {
 
     private void updateWinner() {
         victoryService.findWinner(state).ifPresent(state::setWinner);
+    }
+
+    private void updateSpecialCards() {
+        victoryService.updateSpecialCards(state);
+    }
+
+    private void requireSetupPlayer(String playerId) {
+        if (state.getTurnState().getPhase() != TurnPhase.SETUP) {
+            throw new IllegalStateException("Action is only valid during setup");
+        }
+
+        if (!state.getCurrentPlayer().getId().equals(playerId)) {
+            throw new IllegalArgumentException("It is not this player's setup turn");
+        }
     }
 
     private void requireStarted() {
