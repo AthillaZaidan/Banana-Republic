@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.bananarepublic.model.building.Building;
+import com.bananarepublic.model.card.DevelopmentCard;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.model.transport.Pipe;
@@ -22,6 +23,7 @@ public class Player {
     private final List<Building> ownedBuildings;
     private final List<Pipe> ownedPipes;
     private final Set<SpecialCardType> specialCards;
+    private final List<DevelopmentCard> handCards;
 
     private int playedKnightCount;
     private int secretVictoryPoints;
@@ -45,6 +47,7 @@ public class Player {
         this.ownedBuildings = new ArrayList<>();
         this.ownedPipes = new ArrayList<>();
         this.specialCards = EnumSet.noneOf(SpecialCardType.class);
+        this.handCards = new ArrayList<>();
 
         this.playedKnightCount = 0;
         this.secretVictoryPoints = 0;
@@ -178,6 +181,31 @@ public class Player {
 
     public Set<SpecialCardType> getSpecialCards() {
         return Set.copyOf(specialCards);
+    }
+
+    public void addCard(DevelopmentCard card) {
+        Objects.requireNonNull(card, "Card cannot be null");
+        handCards.add(card);
+    }
+
+    public void removeCard(DevelopmentCard card) {
+        Objects.requireNonNull(card, "Card cannot be null");
+        handCards.remove(card);
+    }
+
+    public DevelopmentCard findCard(String cardId) {
+        return handCards.stream()
+                .filter(card -> card.getId().equals(cardId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public List<DevelopmentCard> getHandCards() {
+        return List.copyOf(handCards);
+    }
+
+    public int getHandCardCount() {
+        return handCards.size();
     }
 
     @Override

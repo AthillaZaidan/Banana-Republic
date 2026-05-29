@@ -55,6 +55,7 @@ public class TurnManager {
         turnState.setHasRolledDice(false);
         turnState.setHasPlayedDevelopmentCard(false);
         turnState.setRemainingSeconds(90);
+        turnState.clearNewlyBoughtCards();
     }
 
     public void markSetupPostPlaced(String intersectionId) {

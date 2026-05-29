@@ -1,6 +1,8 @@
 package com.bananarepublic.engine;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public class TurnState {
     private int currentPlayerIndex;
@@ -11,6 +13,7 @@ public class TurnState {
     private int remainingSeconds;
     private boolean waitingForSetupPipe;
     private String setupPostIntersectionId;
+    private final Set<String> newlyBoughtCardIds = new HashSet<>();
 
     public TurnState(int currentPlayerIndex, TurnPhase phase) {
         this.currentPlayerIndex = currentPlayerIndex;
@@ -84,5 +87,18 @@ public class TurnState {
 
     void setSetupPostIntersectionId(String setupPostIntersectionId) {
         this.setupPostIntersectionId = setupPostIntersectionId;
+    }
+
+    public void addNewlyBoughtCard(String cardId) {
+        Objects.requireNonNull(cardId, "Card id cannot be null");
+        newlyBoughtCardIds.add(cardId);
+    }
+
+    public boolean isNewlyBoughtCard(String cardId) {
+        return newlyBoughtCardIds.contains(cardId);
+    }
+
+    public void clearNewlyBoughtCards() {
+        newlyBoughtCardIds.clear();
     }
 }
