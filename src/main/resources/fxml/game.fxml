@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.GameController"
+           styleClass="bg-wood" prefWidth="1280" prefHeight="800">
+
+    <Pane fx:id="livingLayer" pickOnBounds="false"/>
+
+    <StackPane fx:id="boardHolder" alignment="CENTER">
+        <padding><Insets top="100" right="320" bottom="120" left="100"/></padding>
+    </StackPane>
+
+    <AnchorPane fx:id="hud" pickOnBounds="false">
+
+        <HBox fx:id="topStrip" spacing="12" alignment="CENTER_LEFT"
+              AnchorPane.topAnchor="36" AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40">
+        </HBox>
+
+        <Label styleClass="map-plaque" text="PETA KEPULAUAN BANANA REPUBLIC"
+               AnchorPane.topAnchor="108" AnchorPane.leftAnchor="120"/>
+
+        <VBox spacing="10" AnchorPane.leftAnchor="40" AnchorPane.topAnchor="240">
+            <Button styleClass="btn,btn-icon,btn-icon-teal" text="📊" onAction="#onScoreboard"/>
+            <Button styleClass="btn,btn-icon"             text="🔁" onAction="#onTrade"/>
+            <Button styleClass="btn,btn-icon,btn-icon-teal" text="🃏" onAction="#onCards"/>
+            <Button styleClass="btn,btn-icon"             text="⚙"  onAction="#onSettings"/>
+        </VBox>
+
+        <VBox fx:id="rightSidebar" spacing="10"
+              AnchorPane.topAnchor="120" AnchorPane.rightAnchor="40"
+              AnchorPane.bottomAnchor="130"
+              prefWidth="260">
+            <Label styleClass="plaque" text="NIMON TEAM"/>
+            <VBox fx:id="teamList" spacing="10"/>
+            <Label styleClass="plaque" text="LOGBOOK">
+                <VBox.margin><Insets top="6"/></VBox.margin>
+            </Label>
+            <ScrollPane fx:id="logScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
+                        hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                <VBox fx:id="logbook" styleClass="card-dark" spacing="6">
+                    <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
+                </VBox>
+            </ScrollPane>
+        </VBox>
+
+        <HBox spacing="12" alignment="CENTER_LEFT"
+              AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40"
+              AnchorPane.bottomAnchor="40">
+
+            <HBox fx:id="resBar" styleClass="res-bar" alignment="CENTER_LEFT"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <VBox fx:id="timerChip" styleClass="timer-chip" alignment="CENTER">
+                <Label fx:id="timerValue" styleClass="timer-value" text="01:30"/>
+                <Label styleClass="timer-label" text="TIME REMAINING"/>
+            </VBox>
+
+            <Button styleClass="btn,btn-icon,btn-icon-dark" text="🎲" onAction="#onRollDice"/>
+            <Button styleClass="btn,btn-gold" text="END TURN  ▶" onAction="#onEndTurn"
+                    style="-fx-padding: 14 32; -fx-font-size: 14px;"/>
+        </HBox>
+
+    </AnchorPane>
+
+    <Pane fx:id="frameLayer" pickOnBounds="false" mouseTransparent="true"/>
+</StackPane>

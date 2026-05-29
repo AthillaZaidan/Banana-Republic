@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.TurnTransitionController"
+           styleClass="bg-slate" prefWidth="1280" prefHeight="800">
+
+    <Pane fx:id="livingLayer" pickOnBounds="false"/>
+
+    <VBox alignment="CENTER" spacing="6" maxWidth="-Infinity" maxHeight="-Infinity">
+        <Label styleClass="eyebrow,eyebrow-on-dark" text="L4 · TURN TRANSITION"/>
+        <Label styleClass="wordmark" text="BANANA REPUBLIC" style="-fx-font-size: 42px;"/>
+        <Region styleClass="wordmark-underline" maxWidth="220" prefHeight="3">
+            <VBox.margin><Insets top="6" bottom="28"/></VBox.margin>
+        </Region>
+
+        <StackPane prefWidth="96" prefHeight="96"
+                   style="-fx-background-color: linear-gradient(to bottom, #1b557a, #0e3a5a);
+                          -fx-background-radius: 20; -fx-border-color: -gold-deep;
+                          -fx-border-width: 2; -fx-border-radius: 20;
+                          -fx-effect: dropshadow(gaussian, rgba(245,183,56,0.35), 32, 0.4, 0, 0);">
+            <Label text="👤" style="-fx-font-size: 48px;"/>
+        </StackPane>
+
+        <Label text="Turn complete."
+               style="-fx-font-size: 22px; -fx-text-fill: -ink-on-dark;">
+            <VBox.margin><Insets top="22"/></VBox.margin>
+        </Label>
+
+        <HBox alignment="CENTER" spacing="6">
+            <Label text="Waiting for "
+                   style="-fx-font-size: 18px; -fx-text-fill: -ink-on-dark-mute;"/>
+            <Label fx:id="nextPlayerLabel" text="Gro (Blue)"
+                   style="-fx-font-size: 18px; -fx-text-fill: -gold-1; -fx-font-weight: bold;"/>
+            <Label text="."
+                   style="-fx-font-size: 18px; -fx-text-fill: -ink-on-dark-mute;"/>
+        </HBox>
+
+        <Button fx:id="readyBtn" styleClass="btn,btn-gold,btn-pill"
+                text="I AM READY. START MY TURN  ▶"
+                minWidth="360" onAction="#onReady">
+            <VBox.margin><Insets top="22"/></VBox.margin>
+        </Button>
+
+        <Label text="🔒  PASS THE DEVICE TO THE NEXT PLAYER"
+               style="-fx-font-size: 12px; -fx-text-fill: -ink-on-dark-mute;">
+            <VBox.margin><Insets top="22"/></VBox.margin>
+        </Label>
+    </VBox>
+</StackPane>
