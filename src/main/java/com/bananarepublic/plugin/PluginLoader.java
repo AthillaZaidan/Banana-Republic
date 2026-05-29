@@ -34,15 +34,7 @@ public class PluginLoader {
 
             for (String className : classNames) {
                 try {
-                    Class<?> clazz = Class.forName(className, true, classLoader);
-
-                    if (!ExperimentCard.class.isAssignableFrom(clazz)) {
-                        throw new PluginLoadException("Class " + className + " does not implement ExperimentCard");
-                    }
-
-                    Object instance = clazz.getDeclaredConstructor().newInstance();
-                    ExperimentCard experimentCard = (ExperimentCard) instance;
-                    cards.add(new PluginExperimentCardAdapter(experimentCard));
+                    cards.add(instantiateCard(jarFile, className, null, classLoader));
                 } catch (PluginLoadException e) {
                     throw e;
                 } catch (Exception e) {
@@ -64,6 +56,40 @@ public class PluginLoader {
         }
 
         return cards;
+    }
+
+    public DevelopmentCard loadSingleCardFromJar(File jarFile, String className, String cardId) {
+        if (!jarFile.exists() || !jarFile.isFile()) {
+            throw new PluginLoadException("JAR file does not exist or is not a file: " + jarFile);
+        }
+
+        try (URLClassLoader classLoader = new URLClassLoader(new URL[]{jarFile.toURI().toURL()}, getClass().getClassLoader())) {
+            return instantiateCard(jarFile, className, cardId, classLoader);
+        } catch (PluginLoadException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PluginLoadException("Failed to load plugin card class " + className, e);
+        }
+    }
+
+    private DevelopmentCard instantiateCard(File jarFile, String className, String cardId, ClassLoader classLoader)
+            throws ReflectiveOperationException {
+        Class<?> clazz = Class.forName(className, true, classLoader);
+
+        if (!ExperimentCard.class.isAssignableFrom(clazz) || clazz.isInterface()) {
+            throw new PluginLoadException("Class " + className + " does not implement ExperimentCard");
+        }
+
+        Object instance = clazz.getDeclaredConstructor().newInstance();
+        ExperimentCard experimentCard = (ExperimentCard) instance;
+        String resolvedCardId = cardId != null ? cardId : "PLUGIN-" + experimentCard.getClass().getSimpleName();
+
+        return new PluginExperimentCardAdapter(
+                resolvedCardId,
+                experimentCard,
+                jarFile.getAbsolutePath(),
+                className
+        );
     }
 
     private List<String> findExperimentCardClasses(File jarFile, ClassLoader classLoader) {

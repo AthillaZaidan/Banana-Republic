@@ -11,6 +11,8 @@ import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.Bank;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.persistence.SaveLoadService;
+import com.bananarepublic.persistence.SnapshotSaveLoadService;
 import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.plugin.PluginLoader;
 import com.bananarepublic.service.board.StandardBoardFactory;
@@ -36,11 +38,13 @@ public class GameEngine {
     private final SetupService setupService;
     private final TurnTimerService timerService;
     private final VictoryService victoryService;
+    private final SaveLoadService saveLoadService;
     private GameState state;
 
     public GameEngine() {
         this(new TurnManager(), new DiceService(), new BuildService(),
-                new ResourceProductionService(), new SetupService(), new TurnTimerService(), new VictoryService());
+                new ResourceProductionService(), new SetupService(), new TurnTimerService(),
+                new VictoryService(), new SnapshotSaveLoadService());
     }
 
     public GameEngine(
@@ -52,6 +56,20 @@ public class GameEngine {
             TurnTimerService timerService,
             VictoryService victoryService
     ) {
+        this(turnManager, diceService, buildService, resourceProductionService, setupService,
+                timerService, victoryService, new SnapshotSaveLoadService());
+    }
+
+    public GameEngine(
+            TurnManager turnManager,
+            DiceService diceService,
+            BuildService buildService,
+            ResourceProductionService resourceProductionService,
+            SetupService setupService,
+            TurnTimerService timerService,
+            VictoryService victoryService,
+            SaveLoadService saveLoadService
+    ) {
         this.turnManager = Objects.requireNonNull(turnManager, "Turn manager cannot be null");
         this.diceService = Objects.requireNonNull(diceService, "Dice service cannot be null");
         this.buildService = Objects.requireNonNull(buildService, "Build service cannot be null");
@@ -59,6 +77,7 @@ public class GameEngine {
         this.setupService = Objects.requireNonNull(setupService, "Setup service cannot be null");
         this.timerService = Objects.requireNonNull(timerService, "Timer service cannot be null");
         this.victoryService = Objects.requireNonNull(victoryService, "Victory service cannot be null");
+        this.saveLoadService = Objects.requireNonNull(saveLoadService, "Save/load service cannot be null");
     }
 
     public void startNewGame(GameConfig config) {
@@ -338,6 +357,19 @@ public class GameEngine {
     public GameState getState() {
         requireStarted();
         return state;
+    }
+
+    public void saveGame(File file) {
+        requireStarted();
+        Objects.requireNonNull(file, "Save file cannot be null");
+        saveLoadService.save(state, file.toPath());
+    }
+
+    public void loadGame(File file) {
+        Objects.requireNonNull(file, "Save file cannot be null");
+        timerService.stop();
+        state = saveLoadService.load(file.toPath());
+        turnManager.restore(state.getPlayers(), state.getTurnState());
     }
 
     private DevelopmentCard findAndValidateCard(String playerId, String cardId) {
