@@ -1,8 +1,11 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.plugin.PluginLoadException;
+import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.CheckBox;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
@@ -37,9 +40,27 @@ public class SettingsDialogController {
         chooser.getExtensionFilters().add(
             new FileChooser.ExtensionFilter("Plugin Jar", "*.jar"));
         File f = chooser.showOpenDialog(Navigator.primary());
-        if (f != null) {
-            System.out.println("[Settings] plugin -> " + f.getAbsolutePath());
+        if (f == null) return;
+
+        if (!GameSession.hasEngine()) {
+            showAlert("Error", "Tidak ada permainan aktif untuk memuat plugin.");
+            return;
         }
+
+        try {
+            GameSession.engine().loadPluginCards(f);
+            showAlert("Sukses", "Plugin berhasil dimuat: " + f.getName());
+        } catch (PluginLoadException ex) {
+            showAlert("Gagal Memuat Plugin", ex.getMessage());
+        }
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     @FXML

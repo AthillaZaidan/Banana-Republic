@@ -4,8 +4,10 @@ import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.engine.GameState;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.service.dice.DiceMode;
 import com.bananarepublic.service.dice.DiceRoll;
+import com.bananarepublic.service.victory.VictoryService;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.HexBoard;
 import com.bananarepublic.ui.LivingBackground;
@@ -45,40 +47,50 @@ public class GameController {
 
     @FXML
     public void initialize() {
+        GameSession.setGameController(this);
         LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
         boardHolder.getChildren().add(new HexBoard(720, 600));
         if (GameSession.hasEngine()) {
             installFromEngine();
+            log("[Engine] " + GameSession.engine().getState().getCurrentPlayer().getName() + "'s turn.");
         } else {
             installPlayers();
             installTeamSidebar();
             installLog();
+            installResourceBar();
         }
         installFrame();
-        installResourceBar();
         startTimer();
     }
 
     private void installFromEngine() {
         GameState state = GameSession.engine().getState();
         Player active = state.getCurrentPlayer();
+        topStrip.getChildren().clear();
+        teamList.getChildren().clear();
         for (Player p : state.getPlayers()) {
             boolean isActive = p == active;
+            int vp = new VictoryService().calculateVictoryPoints(p);
             topStrip.getChildren().add(new PlayerBanner(
                 p.getName(), cssColor(p.getColor()),
-                0, p.getTotalResourceCards(), p.getPlayedKnightCount(),
+                vp, p.getTotalResourceCards(), p.getPlayedKnightCount(),
                 isActive, isActive));
 
             addTeamRow(p.getName(), cssColor(p.getColor()),
-                0,
+                vp,
                 p.getOwnedPipes().size(),
                 ownedPosts(p),
                 ownedLabs(p),
                 p.getTotalResourceCards(),
-                0,
+                p.getHandCardCount(),
                 isActive);
         }
-        log("[Engine] " + active.getName() + "'s turn.");
+        installResourceBarFromEngine(active);
+    }
+
+    public void refresh() {
+        if (!GameSession.hasEngine()) return;
+        installFromEngine();
     }
 
     private static int ownedPosts(Player p) {
@@ -102,7 +114,7 @@ public class GameController {
         };
     }
 
-    private void log(String entry) {
+    public void log(String entry) {
         HBox row = new HBox(6);
         row.getStyleClass().add("log-entry");
         Label text = new Label(entry);
@@ -112,6 +124,7 @@ public class GameController {
     }
 
     private void installResourceBar() {
+        resBar.getChildren().clear();
         StackPane vp = new StackPane(new Label("5"));
         vp.getStyleClass().add("res-chip-vp");
         resBar.getChildren().add(vp);
@@ -121,6 +134,20 @@ public class GameController {
         resBar.getChildren().add(resChip(ResourceIcons.Kind.WHEAT,  2));
         resBar.getChildren().add(resChip(ResourceIcons.Kind.ORE,    1));
         resBar.getChildren().add(resChip(ResourceIcons.Kind.BANANA, 1));
+    }
+
+    private void installResourceBarFromEngine(Player active) {
+        resBar.getChildren().clear();
+        int vp = new VictoryService().calculateVictoryPoints(active);
+        StackPane vpNode = new StackPane(new Label(String.valueOf(vp)));
+        vpNode.getStyleClass().add("res-chip-vp");
+        resBar.getChildren().add(vpNode);
+
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.WOOD,   active.getResourceAmount(ResourceType.WOOD)));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.BRICK,  active.getResourceAmount(ResourceType.BRICK)));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.WHEAT,  active.getResourceAmount(ResourceType.WHEAT)));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.ORE,    active.getResourceAmount(ResourceType.ORE)));
+        resBar.getChildren().add(resChip(ResourceIcons.Kind.BANANA, active.getResourceAmount(ResourceType.BANANA)));
     }
 
     private HBox resChip(ResourceIcons.Kind kind, int count) {

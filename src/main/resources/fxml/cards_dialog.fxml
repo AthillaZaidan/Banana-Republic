@@ -24,9 +24,13 @@
                     <padding><Insets top="4" right="4" bottom="8" left="4"/></padding>
                 </HBox>
             </ScrollPane>
+            <Label fx:id="emptyLabel" text="Belum ada kartu." wrapText="true"
+                   style="-fx-font-size: 13px; -fx-text-fill: -ink-mute;"
+                   visible="false" managed="${emptyLabel.visible}"/>
         </VBox>
 
         <HBox styleClass="modal__footer">
+            <Button styleClass="btn,btn-outline" text="BELI KARTU (1⛏+1🍌+1🌾)" onAction="#onBuy"/>
             <Button styleClass="btn,btn-outline" text="TUTUP" onAction="#onClose"/>
             <Button styleClass="btn,btn-gold"    text="▸ MAINKAN KARTU TERPILIH"
                     onAction="#onPlay"/>
