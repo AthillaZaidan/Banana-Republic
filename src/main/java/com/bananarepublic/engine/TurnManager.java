@@ -99,6 +99,18 @@ public class TurnManager {
         return turnState;
     }
 
+    public void restore(List<Player> players, TurnState turnState) {
+        Objects.requireNonNull(players, "Players cannot be null");
+        Objects.requireNonNull(turnState, "Turn state cannot be null");
+
+        if (players.isEmpty()) {
+            throw new IllegalArgumentException("Players cannot be empty");
+        }
+
+        this.players = List.copyOf(players);
+        this.turnState = turnState;
+    }
+
     private void advanceSetupPlayer() {
         int currentIndex = turnState.getCurrentPlayerIndex();
 
