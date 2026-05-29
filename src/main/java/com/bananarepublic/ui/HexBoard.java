@@ -64,8 +64,8 @@ public final class HexBoard extends Pane {
         setMaxSize(width, height);
         getTransforms().add(new Rotate(14, width / 2, height / 2, 0, Rotate.X_AXIS));
         buildOceanDecor(width, height);
-        buildHarbors(width, height);
         buildIsland(width, height);
+        buildHarbors(width, height);
         buildHexes(width, height);
         buildBuildings(width, height);
     }
