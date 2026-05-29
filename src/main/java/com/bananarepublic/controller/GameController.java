@@ -318,18 +318,13 @@ public class GameController {
             log("[Roll] " + engine.getState().getCurrentPlayer().getName()
                 + " rolled " + roll.getFirst() + "+" + roll.getSecond()
                 + " = " + roll.total() + ".");
-            if (roll.total() == 7 && anyHandOver(engine.getState(), 7)) {
+            if (roll.total() == 7 && engine.getState().getTurnState().getPhase() == com.bananarepublic.engine.TurnPhase.DISCARD) {
                 Navigator.showOverlay("/fxml/discard_dialog.fxml");
             }
             checkVictory();
         } catch (RuntimeException ex) {
             log("[Roll] " + ex.getMessage());
         }
-    }
-
-    private boolean anyHandOver(GameState state, int threshold) {
-        return state.getPlayers().stream()
-            .anyMatch(p -> p.getTotalResourceCards() > threshold);
     }
 
     private void checkVictory() {
