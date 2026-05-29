@@ -52,6 +52,7 @@ public class GameController {
         boardHolder.getChildren().add(new HexBoard(720, 600));
         if (GameSession.hasEngine()) {
             installFromEngine();
+            remainingSeconds = Math.max(0, GameSession.engine().getState().getTurnState().getRemainingSeconds());
             log("[Engine] " + GameSession.engine().getState().getCurrentPlayer().getName() + "'s turn.");
         } else {
             installPlayers();
@@ -60,6 +61,7 @@ public class GameController {
             installResourceBar();
         }
         installFrame();
+        updateTimerDisplay();
         startTimer();
     }
 
@@ -91,6 +93,8 @@ public class GameController {
     public void refresh() {
         if (!GameSession.hasEngine()) return;
         installFromEngine();
+        remainingSeconds = Math.max(0, GameSession.engine().getState().getTurnState().getRemainingSeconds());
+        updateTimerDisplay();
     }
 
     private static int ownedPosts(Player p) {
@@ -294,11 +298,22 @@ public class GameController {
             return;
         }
         remainingSeconds--;
+        if (GameSession.hasEngine()) {
+            GameSession.engine().getState().getTurnState().setRemainingSeconds(remainingSeconds);
+        }
+        updateTimerDisplay();
+    }
+
+    private void updateTimerDisplay() {
         int mm = remainingSeconds / 60;
         int ss = remainingSeconds % 60;
         timerValue.setText(String.format("%02d:%02d", mm, ss));
-        if (remainingSeconds <= 10 && !timerChip.getStyleClass().contains("is-urgent")) {
-            timerChip.getStyleClass().add("is-urgent");
+        if (remainingSeconds <= 10) {
+            if (!timerChip.getStyleClass().contains("is-urgent")) {
+                timerChip.getStyleClass().add("is-urgent");
+            }
+        } else {
+            timerChip.getStyleClass().remove("is-urgent");
         }
     }
 

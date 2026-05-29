@@ -71,7 +71,6 @@ public class TurnState {
         if (remainingSeconds < 0) {
             throw new IllegalArgumentException("Remaining seconds cannot be negative");
         }
-
         this.remainingSeconds = remainingSeconds;
     }
 
@@ -104,6 +103,10 @@ public class TurnState {
         newlyBoughtCardIds.clear();
     }
 
+    public Set<String> getNewlyBoughtCardIds() {
+        return Set.copyOf(newlyBoughtCardIds);
+    }
+
     public Set<String> getPendingDiscardPlayerIds() {
         return Set.copyOf(pendingDiscardPlayerIds);
     }
@@ -128,4 +131,32 @@ public class TurnState {
     public void setNimonMovedThisSeven(boolean nimonMovedThisSeven) {
         this.nimonMovedThisSeven = nimonMovedThisSeven;
     }
+
+    public static TurnState restore(
+            int currentPlayerIndex,
+            TurnPhase phase,
+            int setupRound,
+            boolean hasRolledDice,
+            boolean hasPlayedDevelopmentCard,
+            int remainingSeconds,
+            boolean waitingForSetupPipe,
+            String setupPostIntersectionId,
+            Set<String> newlyBoughtCardIds
+    ) {
+        TurnState restoredState = new TurnState(currentPlayerIndex, phase);
+        restoredState.setSetupRound(setupRound);
+        restoredState.setHasRolledDice(hasRolledDice);
+        restoredState.setHasPlayedDevelopmentCard(hasPlayedDevelopmentCard);
+        restoredState.setRemainingSeconds(remainingSeconds);
+        restoredState.setWaitingForSetupPipe(waitingForSetupPipe);
+        restoredState.setSetupPostIntersectionId(setupPostIntersectionId);
+
+        for (String cardId : Objects.requireNonNull(newlyBoughtCardIds, "Newly bought card ids cannot be null")) {
+            restoredState.addNewlyBoughtCard(cardId);
+        }
+
+        assert restoredState.newlyBoughtCardIds.size() == newlyBoughtCardIds.size();
+        return restoredState;
+    }
 }
+

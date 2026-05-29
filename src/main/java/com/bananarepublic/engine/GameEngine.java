@@ -11,6 +11,8 @@ import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.Bank;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.persistence.SaveLoadService;
+import com.bananarepublic.persistence.SnapshotSaveLoadService;
 import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.plugin.PluginLoader;
 import com.bananarepublic.service.board.StandardBoardFactory;
@@ -30,6 +32,7 @@ import com.bananarepublic.service.victory.VictoryService;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -43,12 +46,13 @@ public class GameEngine {
     private final VictoryService victoryService;
     private final TradeService tradeService;
     private final NimonService nimonService;
+    private final SaveLoadService saveLoadService;
     private GameState state;
 
     public GameEngine() {
         this(new TurnManager(), new DiceService(), new BuildService(),
                 new ResourceProductionService(), new SetupService(), new TurnTimerService(), new VictoryService(),
-                new TradeService(), new NimonService());
+                new TradeService(), new NimonService(), new SnapshotSaveLoadService());
     }
 
     public GameEngine(
@@ -62,6 +66,22 @@ public class GameEngine {
             TradeService tradeService,
             NimonService nimonService
     ) {
+        this(turnManager, diceService, buildService, resourceProductionService, setupService,
+                timerService, victoryService, tradeService, nimonService, new SnapshotSaveLoadService());
+    }
+
+    public GameEngine(
+            TurnManager turnManager,
+            DiceService diceService,
+            BuildService buildService,
+            ResourceProductionService resourceProductionService,
+            SetupService setupService,
+            TurnTimerService timerService,
+            VictoryService victoryService,
+            TradeService tradeService,
+            NimonService nimonService,
+            SaveLoadService saveLoadService
+    ) {
         this.turnManager = Objects.requireNonNull(turnManager, "Turn manager cannot be null");
         this.diceService = Objects.requireNonNull(diceService, "Dice service cannot be null");
         this.buildService = Objects.requireNonNull(buildService, "Build service cannot be null");
@@ -71,6 +91,7 @@ public class GameEngine {
         this.victoryService = Objects.requireNonNull(victoryService, "Victory service cannot be null");
         this.tradeService = Objects.requireNonNull(tradeService, "Trade service cannot be null");
         this.nimonService = Objects.requireNonNull(nimonService, "Nimon service cannot be null");
+        this.saveLoadService = Objects.requireNonNull(saveLoadService, "Save/load service cannot be null");
     }
 
     public void startNewGame(GameConfig config) {
@@ -99,7 +120,7 @@ public class GameEngine {
             List<String> discardPlayerIds = nimonService.getPlayersWhoMustDiscard(state).stream()
                     .map(Player::getId)
                     .toList();
-            state.getTurnState().setPendingDiscardPlayerIds(new java.util.HashSet<>(discardPlayerIds));
+            state.getTurnState().setPendingDiscardPlayerIds(new HashSet<>(discardPlayerIds));
             state.getTurnState().setNimonMovedThisSeven(false);
 
             if (discardPlayerIds.isEmpty()) {
@@ -455,6 +476,19 @@ public class GameEngine {
     public GameState getState() {
         requireStarted();
         return state;
+    }
+
+    public void saveGame(File file) {
+        requireStarted();
+        Objects.requireNonNull(file, "Save file cannot be null");
+        saveLoadService.save(state, file.toPath());
+    }
+
+    public void loadGame(File file) {
+        Objects.requireNonNull(file, "Save file cannot be null");
+        timerService.stop();
+        state = saveLoadService.load(file.toPath());
+        turnManager.restore(state.getPlayers(), state.getTurnState());
     }
 
     private DevelopmentCard findAndValidateCard(String playerId, String cardId) {
