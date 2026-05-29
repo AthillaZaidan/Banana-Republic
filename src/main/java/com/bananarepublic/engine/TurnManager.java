@@ -56,6 +56,8 @@ public class TurnManager {
         turnState.setHasPlayedDevelopmentCard(false);
         turnState.setRemainingSeconds(90);
         turnState.clearNewlyBoughtCards();
+        turnState.clearPendingDiscards();
+        turnState.setNimonMovedThisSeven(false);
     }
 
     public void markSetupPostPlaced(String intersectionId) {

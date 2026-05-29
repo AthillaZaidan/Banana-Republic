@@ -14,6 +14,8 @@ public class TurnState {
     private boolean waitingForSetupPipe;
     private String setupPostIntersectionId;
     private final Set<String> newlyBoughtCardIds = new HashSet<>();
+    private final Set<String> pendingDiscardPlayerIds = new HashSet<>();
+    private boolean nimonMovedThisSeven;
 
     public TurnState(int currentPlayerIndex, TurnPhase phase) {
         this.currentPlayerIndex = currentPlayerIndex;
@@ -69,7 +71,6 @@ public class TurnState {
         if (remainingSeconds < 0) {
             throw new IllegalArgumentException("Remaining seconds cannot be negative");
         }
-
         this.remainingSeconds = remainingSeconds;
     }
 
@@ -106,6 +107,31 @@ public class TurnState {
         return Set.copyOf(newlyBoughtCardIds);
     }
 
+    public Set<String> getPendingDiscardPlayerIds() {
+        return Set.copyOf(pendingDiscardPlayerIds);
+    }
+
+    public void setPendingDiscardPlayerIds(Set<String> playerIds) {
+        pendingDiscardPlayerIds.clear();
+        pendingDiscardPlayerIds.addAll(Objects.requireNonNull(playerIds, "Pending discard players cannot be null"));
+    }
+
+    public void markDiscardDone(String playerId) {
+        pendingDiscardPlayerIds.remove(playerId);
+    }
+
+    public void clearPendingDiscards() {
+        pendingDiscardPlayerIds.clear();
+    }
+
+    public boolean isNimonMovedThisSeven() {
+        return nimonMovedThisSeven;
+    }
+
+    public void setNimonMovedThisSeven(boolean nimonMovedThisSeven) {
+        this.nimonMovedThisSeven = nimonMovedThisSeven;
+    }
+
     public static TurnState restore(
             int currentPlayerIndex,
             TurnPhase phase,
@@ -133,3 +159,4 @@ public class TurnState {
         return restoredState;
     }
 }
+

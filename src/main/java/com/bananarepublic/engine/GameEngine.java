@@ -23,10 +23,16 @@ import com.bananarepublic.service.dice.DiceService;
 import com.bananarepublic.service.resource.ResourceProductionService;
 import com.bananarepublic.service.setup.SetupService;
 import com.bananarepublic.service.timer.TurnTimerService;
+import com.bananarepublic.service.nimon.NimonService;
+import com.bananarepublic.service.trade.MaritimeTradeRequest;
+import com.bananarepublic.service.trade.TradeOffer;
+import com.bananarepublic.service.trade.TradeResult;
+import com.bananarepublic.service.trade.TradeService;
 import com.bananarepublic.service.victory.VictoryService;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -38,26 +44,15 @@ public class GameEngine {
     private final SetupService setupService;
     private final TurnTimerService timerService;
     private final VictoryService victoryService;
+    private final TradeService tradeService;
+    private final NimonService nimonService;
     private final SaveLoadService saveLoadService;
     private GameState state;
 
     public GameEngine() {
         this(new TurnManager(), new DiceService(), new BuildService(),
-                new ResourceProductionService(), new SetupService(), new TurnTimerService(),
-                new VictoryService(), new SnapshotSaveLoadService());
-    }
-
-    public GameEngine(
-            TurnManager turnManager,
-            DiceService diceService,
-            BuildService buildService,
-            ResourceProductionService resourceProductionService,
-            SetupService setupService,
-            TurnTimerService timerService,
-            VictoryService victoryService
-    ) {
-        this(turnManager, diceService, buildService, resourceProductionService, setupService,
-                timerService, victoryService, new SnapshotSaveLoadService());
+                new ResourceProductionService(), new SetupService(), new TurnTimerService(), new VictoryService(),
+                new TradeService(), new NimonService(), new SnapshotSaveLoadService());
     }
 
     public GameEngine(
@@ -68,6 +63,23 @@ public class GameEngine {
             SetupService setupService,
             TurnTimerService timerService,
             VictoryService victoryService,
+            TradeService tradeService,
+            NimonService nimonService
+    ) {
+        this(turnManager, diceService, buildService, resourceProductionService, setupService,
+                timerService, victoryService, tradeService, nimonService, new SnapshotSaveLoadService());
+    }
+
+    public GameEngine(
+            TurnManager turnManager,
+            DiceService diceService,
+            BuildService buildService,
+            ResourceProductionService resourceProductionService,
+            SetupService setupService,
+            TurnTimerService timerService,
+            VictoryService victoryService,
+            TradeService tradeService,
+            NimonService nimonService,
             SaveLoadService saveLoadService
     ) {
         this.turnManager = Objects.requireNonNull(turnManager, "Turn manager cannot be null");
@@ -77,6 +89,8 @@ public class GameEngine {
         this.setupService = Objects.requireNonNull(setupService, "Setup service cannot be null");
         this.timerService = Objects.requireNonNull(timerService, "Timer service cannot be null");
         this.victoryService = Objects.requireNonNull(victoryService, "Victory service cannot be null");
+        this.tradeService = Objects.requireNonNull(tradeService, "Trade service cannot be null");
+        this.nimonService = Objects.requireNonNull(nimonService, "Nimon service cannot be null");
         this.saveLoadService = Objects.requireNonNull(saveLoadService, "Save/load service cannot be null");
     }
 
@@ -103,7 +117,17 @@ public class GameEngine {
         turnManager.markDiceRolled();
 
         if (roll.total() == 7) {
-            turnManager.moveToPhase(TurnPhase.MOVE_NIMON_UNGU);
+            List<String> discardPlayerIds = nimonService.getPlayersWhoMustDiscard(state).stream()
+                    .map(Player::getId)
+                    .toList();
+            state.getTurnState().setPendingDiscardPlayerIds(new HashSet<>(discardPlayerIds));
+            state.getTurnState().setNimonMovedThisSeven(false);
+
+            if (discardPlayerIds.isEmpty()) {
+                turnManager.moveToPhase(TurnPhase.MOVE_NIMON_UNGU);
+            } else {
+                turnManager.moveToPhase(TurnPhase.DISCARD);
+            }
         } else {
             produceResources(roll.total());
             turnManager.moveToPhase(TurnPhase.TRADE_BUILD);
@@ -288,8 +312,103 @@ public class GameEngine {
         updateWinner();
 
         if (!state.isGameOver()) {
+            tradeService.clearPendingOffer();
             turnManager.endTurn();
         }
+    }
+
+    public TradeResult submitDomesticTrade(TradeOffer offer) {
+        requireStarted();
+        return tradeService.submitDomesticTrade(state, offer);
+    }
+
+    public TradeResult acceptDomesticTrade(String responderPlayerId) {
+        requireStarted();
+        return tradeService.acceptDomesticTrade(state, responderPlayerId);
+    }
+
+    public TradeResult rejectDomesticTrade(String responderPlayerId) {
+        requireStarted();
+        return tradeService.rejectDomesticTrade(state, responderPlayerId);
+    }
+
+    public TradeResult counterDomesticTrade(String responderPlayerId, TradeOffer counterOffer) {
+        requireStarted();
+        return tradeService.counterDomesticTrade(state, responderPlayerId, counterOffer);
+    }
+
+    public TradeResult submitMaritimeTrade(MaritimeTradeRequest request) {
+        requireStarted();
+        return tradeService.submitMaritimeTrade(state, request);
+    }
+
+    public TradeOffer getPendingTradeOffer() {
+        requireStarted();
+        return tradeService.getPendingOffer();
+    }
+
+    public int getBestMaritimeRatio(String playerId, ResourceType offeredType) {
+        requireStarted();
+        return tradeService.resolveBestRatio(state, state.getPlayerById(playerId), offeredType);
+    }
+
+    public List<Player> getPlayersWhoMustDiscard() {
+        requireStarted();
+        return nimonService.getPlayersWhoMustDiscard(state);
+    }
+
+    public void discardForSeven(String playerId, ResourceInventory discarded) {
+        requireStarted();
+        if (state.getTurnState().getPhase() != TurnPhase.DISCARD) {
+            throw new IllegalStateException("Discard is only available during DISCARD phase");
+        }
+
+        nimonService.discardHalfIfNeeded(state, playerId, discarded);
+        state.getTurnState().markDiscardDone(playerId);
+        if (state.getTurnState().getPendingDiscardPlayerIds().isEmpty()) {
+            turnManager.moveToPhase(TurnPhase.MOVE_NIMON_UNGU);
+        }
+    }
+
+    public void moveNimonAfterSeven(String tileId) {
+        requireStarted();
+        if (state.getTurnState().getPhase() != TurnPhase.MOVE_NIMON_UNGU) {
+            throw new IllegalStateException("Nimon move is only available during MOVE_NIMON_UNGU phase");
+        }
+        if (!state.getTurnState().getPendingDiscardPlayerIds().isEmpty()) {
+            throw new IllegalStateException("All mandatory discards must complete before moving Nimon");
+        }
+
+        nimonService.moveNimon(state, tileId);
+        state.getTurnState().setNimonMovedThisSeven(true);
+    }
+
+    public void stealAfterSeven(String victimPlayerId) {
+        requireStarted();
+        if (state.getTurnState().getPhase() != TurnPhase.MOVE_NIMON_UNGU) {
+            throw new IllegalStateException("Steal is only available during MOVE_NIMON_UNGU phase");
+        }
+        if (!state.getTurnState().isNimonMovedThisSeven()) {
+            throw new IllegalStateException("Nimon must be moved before stealing");
+        }
+        nimonService.stealRandomResource(state, state.getCurrentPlayer().getId(), victimPlayerId);
+        turnManager.moveToPhase(TurnPhase.TRADE_BUILD);
+    }
+
+    public List<Player> getValidStealTargetsAfterSeven() {
+        requireStarted();
+        return nimonService.getValidStealTargets(state, state.getCurrentPlayer().getId());
+    }
+
+    public void finishNimonAfterSevenWithoutSteal() {
+        requireStarted();
+        if (state.getTurnState().getPhase() != TurnPhase.MOVE_NIMON_UNGU) {
+            throw new IllegalStateException("Nimon flow is not active");
+        }
+        if (!state.getTurnState().isNimonMovedThisSeven()) {
+            throw new IllegalStateException("Nimon must be moved before finishing");
+        }
+        turnManager.moveToPhase(TurnPhase.TRADE_BUILD);
     }
 
     public void placeSetupWatchPost(String playerId, String intersectionId) {

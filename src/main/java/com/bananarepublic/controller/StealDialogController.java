@@ -1,6 +1,7 @@
 package com.bananarepublic.controller;
 
 import com.bananarepublic.ui.Navigator;
+import com.bananarepublic.ui.GameSession;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -12,24 +13,47 @@ import javafx.scene.layout.VBox;
 import java.util.List;
 
 public class StealDialogController {
-    private record Target(String name, String color, int cards) {}
+    private record Target(String playerId, String name, String color, int cards) {}
 
     @FXML private StackPane root;
     @FXML private HBox targetRow;
 
     private VBox selected;
+    private String selectedPlayerId;
 
     @FXML
     public void initialize() {
-        List<Target> targets = List.of(
-            new Target("Stewart", "red",   4),
-            new Target("Tara",    "white", 2),
-            new Target("Kebin",   "gold",  6)
-        );
+        if (!GameSession.hasEngine()) {
+            close();
+            return;
+        }
+
+        List<Target> targets = GameSession.engine().getValidStealTargetsAfterSeven().stream()
+                .map(player -> new Target(
+                        player.getId(),
+                        player.getName(),
+                        cssColor(player.getColor()),
+                        player.getTotalResourceCards()
+                ))
+                .toList();
+
+        if (targets.isEmpty()) {
+            try {
+                GameSession.engine().finishNimonAfterSevenWithoutSteal();
+            } catch (RuntimeException ignored) {
+                // Ignore when overlay opened from a non-seven flow.
+            }
+            close();
+            return;
+        }
+
         boolean first = true;
         for (Target t : targets) {
             VBox tile = buildTile(t, first);
-            if (first) selected = tile;
+            if (first) {
+                selected = tile;
+                selectedPlayerId = t.playerId();
+            }
             HBox.setHgrow(tile, Priority.ALWAYS);
             targetRow.getChildren().add(tile);
             first = false;
@@ -64,7 +88,7 @@ public class StealDialogController {
         tag.setStyle("-fx-font-size: 9px;");
 
         tile.getChildren().addAll(chip, name, cards, random, tag);
-        tile.setOnMouseClicked(e -> select(tile));
+        tile.setOnMouseClicked(e -> select(tile, t.playerId()));
         return tile;
     }
 
@@ -77,15 +101,29 @@ public class StealDialogController {
                 : "-fx-border-color: -parchment-line; -fx-border-width: 1.5; -fx-border-radius: 12;"));
     }
 
-    private void select(VBox tile) {
+    private void select(VBox tile, String playerId) {
         if (selected != null) applyTileStyle(selected, false);
         selected = tile;
+        selectedPlayerId = playerId;
         applyTileStyle(tile, true);
     }
 
     @FXML
     private void onConfirm() {
-        System.out.println("[Steal] confirm");
+        try {
+            if (selectedPlayerId != null) {
+                GameSession.engine().stealAfterSeven(selectedPlayerId);
+            } else {
+                GameSession.engine().finishNimonAfterSevenWithoutSteal();
+            }
+            GameController controller = GameSession.getGameController();
+            if (controller != null) {
+                controller.log("[Nimon] Steal action resolved.");
+                controller.refresh();
+            }
+        } catch (RuntimeException ex) {
+            return;
+        }
         close();
     }
 
@@ -94,5 +132,14 @@ public class StealDialogController {
 
     private void close() {
         Navigator.closeOverlay(root);
+    }
+
+    private static String cssColor(com.bananarepublic.model.player.PlayerColor color) {
+        return switch (color) {
+            case RED -> "red";
+            case BLUE -> "blue";
+            case YELLOW -> "gold";
+            case GREEN -> "white";
+        };
     }
 }
