@@ -1,8 +1,12 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.engine.GameEngine;
+import com.bananarepublic.exception.SaveLoadException;
+import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.layout.Pane;
 import javafx.stage.FileChooser;
 
@@ -31,8 +35,14 @@ public class MainMenuController {
             new FileChooser.ExtensionFilter("Game Save", "*.json", "*.ser"));
         File chosen = chooser.showOpenDialog(Navigator.primary());
         if (chosen != null) {
-            System.out.println("[MainMenu] selected: " + chosen.getAbsolutePath());
-            Navigator.goTo("/fxml/game.fxml");
+            try {
+                GameEngine engine = new GameEngine();
+                engine.loadGame(chosen);
+                GameSession.setEngine(engine);
+                Navigator.goTo("/fxml/game.fxml");
+            } catch (SaveLoadException ex) {
+                showAlert("Gagal Memuat Save", ex.getMessage(), Alert.AlertType.ERROR);
+            }
         }
     }
 
@@ -40,5 +50,13 @@ public class MainMenuController {
     private void onExit() {
         System.out.println("[MainMenu] EXIT");
         Navigator.primary().close();
+    }
+
+    private void showAlert(String title, String message, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

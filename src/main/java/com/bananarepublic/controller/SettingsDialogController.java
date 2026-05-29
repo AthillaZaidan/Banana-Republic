@@ -1,5 +1,6 @@
 package com.bananarepublic.controller;
 
+import com.bananarepublic.exception.SaveLoadException;
 import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
@@ -23,13 +24,24 @@ public class SettingsDialogController {
 
     @FXML
     private void onSaveState() {
+        if (!GameSession.hasEngine()) {
+            showAlert("Error", "Tidak ada permainan aktif untuk disimpan.");
+            return;
+        }
+
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Save Game State");
         chooser.getExtensionFilters().add(
             new FileChooser.ExtensionFilter("Game Save", "*.json", "*.ser"));
         File f = chooser.showSaveDialog(Navigator.primary());
         if (f != null) {
-            System.out.println("[Settings] save -> " + f.getAbsolutePath());
+            File target = normalizeSaveTarget(f);
+            try {
+                GameSession.engine().saveGame(target);
+                showAlert("Sukses", "Save berhasil ditulis ke: " + target.getName());
+            } catch (SaveLoadException ex) {
+                showAlert("Gagal Menyimpan Save", ex.getMessage());
+            }
         }
     }
 
@@ -76,5 +88,13 @@ public class SettingsDialogController {
 
     private void close() {
         Navigator.closeOverlay(root);
+    }
+
+    private File normalizeSaveTarget(File chosen) {
+        String lowerName = chosen.getName().toLowerCase();
+        if (lowerName.endsWith(".json") || lowerName.endsWith(".ser")) {
+            return chosen;
+        }
+        return new File(chosen.getParentFile(), chosen.getName() + ".json");
     }
 }
