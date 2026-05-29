@@ -1,8 +1,18 @@
 package com.bananarepublic.engine;
 
 import com.bananarepublic.model.board.Board;
+import com.bananarepublic.model.card.DevelopmentCard;
+import com.bananarepublic.model.card.DevelopmentDeck;
+import com.bananarepublic.model.card.KnightCard;
+import com.bananarepublic.model.card.MonopolyCard;
+import com.bananarepublic.model.card.RoadBuildingCard;
+import com.bananarepublic.model.card.VictoryPointCard;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.Bank;
+import com.bananarepublic.model.resource.ResourceInventory;
+import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.plugin.PluginLoadException;
+import com.bananarepublic.plugin.PluginLoader;
 import com.bananarepublic.service.board.StandardBoardFactory;
 import com.bananarepublic.service.build.BuildService;
 import com.bananarepublic.service.dice.DiceMode;
@@ -13,6 +23,7 @@ import com.bananarepublic.service.setup.SetupService;
 import com.bananarepublic.service.timer.TurnTimerService;
 import com.bananarepublic.service.victory.VictoryService;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -60,9 +71,11 @@ public class GameEngine {
         Board board = new StandardBoardFactory().createBoard();
         Bank bank = new Bank();
         List<Player> players = createPlayers(config);
+        DevelopmentDeck deck = DevelopmentDeck.createDefaultDeck();
 
         turnManager.startSetup(players);
         state = new GameState(board, players, bank, turnManager.getTurnState());
+        state.setDevelopmentDeck(deck);
     }
 
     public DiceRoll rollDice(DiceMode mode, DiceRoll manualRoll) {
@@ -113,6 +126,141 @@ public class GameEngine {
         buildService.upgradeLaboratory(state, playerId, intersectionId);
         updateSpecialCards();
         updateWinner();
+    }
+
+    public void buyDevelopmentCard(String playerId) {
+        requireStarted();
+        requireActivePlayer(playerId);
+        requirePlayablePhase();
+
+        DevelopmentDeck deck = state.getDevelopmentDeck();
+        if (deck == null || deck.isEmpty()) {
+            throw new IllegalStateException("Development deck is empty");
+        }
+
+        ResourceInventory cost = new ResourceInventory();
+        cost.add(ResourceType.ORE, 1);
+        cost.add(ResourceType.BANANA, 1);
+        cost.add(ResourceType.WHEAT, 1);
+
+        Player player = state.getCurrentPlayer();
+        if (!player.hasResources(cost)) {
+            throw new IllegalStateException("Not enough resources to buy development card");
+        }
+
+        player.removeResources(cost);
+        state.getBank().returnResources(cost);
+
+        DevelopmentCard drawn = deck.draw();
+        player.addCard(drawn);
+        state.getTurnState().addNewlyBoughtCard(drawn.getId());
+
+        if (drawn instanceof VictoryPointCard) {
+            int pointsBefore = victoryService.calculateVictoryPoints(player);
+            drawn.play(state, player);
+            int pointsAfter = victoryService.calculateVictoryPoints(player);
+
+            if (pointsAfter >= VictoryService.WINNING_POINTS) {
+                updateWinner();
+            }
+        }
+    }
+
+    public void playDevelopmentCard(String playerId, String cardId) {
+        requireStarted();
+        requireActivePlayer(playerId);
+        requirePlayablePhase();
+
+        DevelopmentCard card = findAndValidateCard(playerId, cardId);
+        if (!(card instanceof VictoryPointCard)) {
+            validateCanPlayCard(cardId);
+        }
+
+        card.play(state, state.getCurrentPlayer());
+
+        if (card instanceof VictoryPointCard) {
+            updateWinner();
+        } else {
+            state.getTurnState().setHasPlayedDevelopmentCard(true);
+        }
+
+        removeCardFromHand(playerId, cardId);
+        state.getDevelopmentDeck().discard(card);
+        updateSpecialCards();
+        updateWinner();
+    }
+
+    public void playDevelopmentCard(String playerId, String cardId, ResourceType targetResource) {
+        requireStarted();
+        requireActivePlayer(playerId);
+        requirePlayablePhase();
+        validateCanPlayCard(cardId);
+
+        DevelopmentCard card = findAndValidateCard(playerId, cardId);
+        if (!(card instanceof MonopolyCard monopolyCard)) {
+            throw new IllegalArgumentException("This overload is only for Monopoly cards");
+        }
+
+        monopolyCard.setTargetResource(targetResource);
+        monopolyCard.play(state, state.getCurrentPlayer());
+        state.getTurnState().setHasPlayedDevelopmentCard(true);
+
+        removeCardFromHand(playerId, cardId);
+        state.getDevelopmentDeck().discard(card);
+        updateSpecialCards();
+        updateWinner();
+    }
+
+    public void playDevelopmentCard(String playerId, String cardId, List<String> pathIds) {
+        requireStarted();
+        requireActivePlayer(playerId);
+        requirePlayablePhase();
+        validateCanPlayCard(cardId);
+
+        DevelopmentCard card = findAndValidateCard(playerId, cardId);
+        if (!(card instanceof RoadBuildingCard roadCard)) {
+            throw new IllegalArgumentException("This overload is only for Road Building cards");
+        }
+
+        roadCard.setTargetPathIds(pathIds);
+        roadCard.play(state, state.getCurrentPlayer());
+        state.getTurnState().setHasPlayedDevelopmentCard(true);
+
+        removeCardFromHand(playerId, cardId);
+        state.getDevelopmentDeck().discard(card);
+        updateSpecialCards();
+        updateWinner();
+    }
+
+    public void playDevelopmentCard(String playerId, String cardId, String tileId, String victimPlayerId) {
+        requireStarted();
+        requireActivePlayer(playerId);
+        requirePlayablePhase();
+        validateCanPlayCard(cardId);
+
+        DevelopmentCard card = findAndValidateCard(playerId, cardId);
+        if (!(card instanceof KnightCard knightCard)) {
+            throw new IllegalArgumentException("This overload is only for Knight cards");
+        }
+
+        knightCard.setTargetTileId(tileId);
+        knightCard.setVictimPlayerId(victimPlayerId);
+        knightCard.play(state, state.getCurrentPlayer());
+        state.getTurnState().setHasPlayedDevelopmentCard(true);
+
+        removeCardFromHand(playerId, cardId);
+        state.getDevelopmentDeck().discard(card);
+        updateSpecialCards();
+        updateWinner();
+    }
+
+    public void loadPluginCards(File jarFile) {
+        requireStarted();
+        Objects.requireNonNull(jarFile, "JAR file cannot be null");
+
+        PluginLoader loader = new PluginLoader();
+        List<DevelopmentCard> pluginCards = loader.loadFromJar(jarFile);
+        state.getDevelopmentDeck().addCards(pluginCards);
     }
 
     public void endTurn() {
@@ -190,6 +338,45 @@ public class GameEngine {
     public GameState getState() {
         requireStarted();
         return state;
+    }
+
+    private DevelopmentCard findAndValidateCard(String playerId, String cardId) {
+        Player player = state.getPlayerById(playerId);
+        DevelopmentCard card = player.findCard(cardId);
+        if (card == null) {
+            throw new IllegalArgumentException("Card not found in hand: " + cardId);
+        }
+        return card;
+    }
+
+    private void validateCanPlayCard(String cardId) {
+        if (state.getTurnState().hasPlayedDevelopmentCard()) {
+            throw new IllegalStateException("Already played a development card this turn");
+        }
+        if (state.getTurnState().isNewlyBoughtCard(cardId)) {
+            throw new IllegalStateException("Cannot play a card bought this turn");
+        }
+    }
+
+    private void removeCardFromHand(String playerId, String cardId) {
+        Player player = state.getPlayerById(playerId);
+        DevelopmentCard card = player.findCard(cardId);
+        if (card != null) {
+            player.removeCard(card);
+        }
+    }
+
+    private void requireActivePlayer(String playerId) {
+        if (!state.getCurrentPlayer().getId().equals(playerId)) {
+            throw new IllegalArgumentException("It is not this player's turn");
+        }
+    }
+
+    private void requirePlayablePhase() {
+        TurnPhase phase = state.getTurnState().getPhase();
+        if (phase == TurnPhase.SETUP || phase == TurnPhase.GAME_OVER) {
+            throw new IllegalStateException("Cannot play development card in " + phase + " phase");
+        }
     }
 
     private List<Player> createPlayers(GameConfig config) {
