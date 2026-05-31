@@ -2,12 +2,15 @@ package com.bananarepublic.controller;
 
 import com.bananarepublic.exception.SaveLoadException;
 import com.bananarepublic.plugin.PluginLoadException;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 
@@ -16,10 +19,34 @@ import java.io.File;
 public class SettingsDialogController {
     @FXML private StackPane root;
     @FXML private CheckBox animatedBgToggle;
+    @FXML private Slider bgmSlider;
+    @FXML private Slider sfxSlider;
+    @FXML private Label bgmValueLabel;
+    @FXML private Label sfxValueLabel;
 
     @FXML
     public void initialize() {
         animatedBgToggle.setSelected(LivingBackground.isAnimationsEnabled());
+
+        AudioEngine audio = AudioEngine.get();
+        bgmSlider.setValue(audio.getBgmVolume() * 100);
+        sfxSlider.setValue(audio.getSfxVolume() * 100);
+
+        updateLabels();
+
+        bgmSlider.valueProperty().addListener((obs, o, n) -> {
+            audio.setBgmVolume(n.doubleValue() / 100.0);
+            updateLabels();
+        });
+        sfxSlider.valueProperty().addListener((obs, o, n) -> {
+            audio.setSfxVolume(n.doubleValue() / 100.0);
+            updateLabels();
+        });
+    }
+
+    private void updateLabels() {
+        bgmValueLabel.setText((int) bgmSlider.getValue() + "%");
+        sfxValueLabel.setText((int) sfxSlider.getValue() + "%");
     }
 
     @FXML
