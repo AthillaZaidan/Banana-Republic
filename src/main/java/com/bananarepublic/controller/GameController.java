@@ -7,11 +7,13 @@ import com.bananarepublic.engine.GameState;
 import com.bananarepublic.engine.PlayerConfig;
 import com.bananarepublic.engine.TurnPhase;
 import com.bananarepublic.model.board.HexTile;
-import com.bananarepublic.model.board.Intersection;
 import com.bananarepublic.model.board.Path;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.service.build.BuildActionType;
+import com.bananarepublic.service.build.BuildCostProvider;
 import com.bananarepublic.service.dice.DiceMode;
 import com.bananarepublic.service.dice.DiceRoll;
 import com.bananarepublic.service.victory.VictoryService;
@@ -25,25 +27,37 @@ import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.WoodenFrame;
+import javafx.application.Platform;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
+import javafx.geometry.Bounds;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.input.ZoomEvent;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Polygon;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.shape.StrokeType;
+import javafx.scene.paint.Color;
 import javafx.scene.transform.Scale;
 import javafx.scene.transform.Translate;
 import javafx.util.Duration;
@@ -52,25 +66,46 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class GameController {
-    private record Option(String label, String value) {}
+    private enum BoardSelectionType { INTERSECTION, PATH, TILE }
+    private record PendingBoardSelection(
+            BoardSelectionType type,
+            List<String> ids,
+            String prompt,
+            Consumer<String> onSelect,
+            Runnable onCancel
+    ) {}
 
     @FXML private Pane livingLayer;
     @FXML private Pane frameLayer;
     @FXML private StackPane boardHolder;
+    @FXML private AnchorPane hud;
+    @FXML private VBox leftToolbox;
     @FXML private HBox topStrip;
     @FXML private HBox resBar;
     @FXML private VBox teamList;
     @FXML private VBox logbook;
+    @FXML private ScrollPane logScroll;
     @FXML private Label timerValue;
     @FXML private VBox timerChip;
     @FXML private Label phaseLabel;
     @FXML private Label diceSummaryLabel;
     @FXML private Pane dieOneValue;
     @FXML private Pane dieTwoValue;
+    @FXML private Button scoreboardBtn;
+    @FXML private Button tradeBtn;
+    @FXML private Button cardsBtn;
+    @FXML private Button buildCostsBtn;
+    @FXML private Button settingsBtn;
+    @FXML private StackPane buildPostHintZone;
+    @FXML private StackPane buildPipeHintZone;
+    @FXML private StackPane upgradeLabHintZone;
+    @FXML private StackPane resolveNimonHintZone;
+    @FXML private StackPane sidebarHoverPopup;
     @FXML private Button buildPostBtn;
     @FXML private Button buildPipeBtn;
     @FXML private Button upgradeLabBtn;
@@ -88,6 +123,8 @@ public class GameController {
 
     private HexBoard board;
     private Group boardCanvas;
+    private Pane boardSelectionLayer;
+    private final BuildCostProvider buildCostProvider = new BuildCostProvider();
     private final Translate canvasTranslate = new Translate();
     private final Scale canvasScale = new Scale(1, 1, 0, 0);
     private final Random uiRandom = new Random();
@@ -99,20 +136,30 @@ public class GameController {
     private TurnPhase trackedPhase;
     private Timeline diceAnimation;
     private boolean diceAnimationRunning;
+    private boolean botAutomationQueued;
     private DiceFlowContext diceFlowContext;
+    private Node sidebarHoverAnchor;
+    private GameConfig startingOrderBaseConfig;
     private List<PlayerConfig> startingOrderOriginalOrder = List.of();
     private List<PlayerConfig> startingOrderContenders = List.of();
     private final Map<PlayerConfig, DiceRoll> startingOrderRoundRolls = new LinkedHashMap<>();
     private int startingOrderRollIndex;
+    private PendingBoardSelection pendingBoardSelection;
 
     @FXML
     public void initialize() {
         GameSession.setGameController(this);
         LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
         AudioEngine.get().playGameBgm();
+        configureSidebarHoverZones();
+        installSidebarHoverCards();
 
         board = new HexBoard(GameSession.hasEngine() ? GameSession.engine().getState() : null, BOARD_DESIGN_W, BOARD_DESIGN_H);
-        boardCanvas = new Group(board);
+        boardSelectionLayer = new Pane();
+        boardSelectionLayer.setPickOnBounds(false);
+        boardSelectionLayer.setMouseTransparent(false);
+        boardSelectionLayer.setPrefSize(BOARD_DESIGN_W, BOARD_DESIGN_H);
+        boardCanvas = new Group(board, boardSelectionLayer);
         boardCanvas.getTransforms().addAll(canvasTranslate, canvasScale);
 
         Pane canvasPane = new Pane(boardCanvas);
@@ -149,6 +196,7 @@ public class GameController {
         fitBoard();
         syncTimerAndPhaseUi();
         startUiTimer();
+        queueBotAutomationIfNeeded();
     }
 
     public void refresh() {
@@ -161,6 +209,7 @@ public class GameController {
         syncTimerAndPhaseUi();
         trackedPlayerId = state.getCurrentPlayer().getId();
         trackedPhase = state.getTurnState().getPhase();
+        queueBotAutomationIfNeeded();
     }
 
     public void continueSpecialTurnFlow() {
@@ -184,51 +233,81 @@ public class GameController {
     public void log(String entry) {
         HBox row = new HBox(6);
         row.getStyleClass().add("log-entry");
+        row.setAlignment(Pos.TOP_LEFT);
+        row.setMaxWidth(Double.MAX_VALUE);
         Label text = new Label(entry);
         text.getStyleClass().add("log-text");
+        text.setWrapText(true);
+        text.setMaxWidth(Double.MAX_VALUE);
+        text.prefWidthProperty().bind(row.widthProperty().subtract(2));
+        HBox.setHgrow(text, Priority.ALWAYS);
         row.getChildren().add(text);
-        logbook.getChildren().add(0, row);
+        logbook.getChildren().add(row);
+        Platform.runLater(() -> {
+            if (logScroll != null) {
+                logScroll.setVvalue(1.0);
+            }
+        });
     }
 
     @FXML
     private void onScoreboard() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             return;
         }
-
-        GameState state = GameSession.engine().getState();
-        StringBuilder message = new StringBuilder();
-        VictoryService victoryService = new VictoryService();
-        for (Player player : state.getPlayers()) {
-            message.append(player.getName())
-                    .append(": ")
-                    .append(victoryService.calculateVictoryPoints(player))
-                    .append(" VP\n");
-        }
-        showInfo("Scoreboard", message.toString().trim());
+        Navigator.showOverlay("/fxml/scoreboard_dialog.fxml");
     }
 
     @FXML
     private void onTrade() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/trade_dialog.fxml");
     }
 
     @FXML
     private void onCards() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/cards_dialog.fxml");
     }
 
     @FXML
+    private void onBuildCosts() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
+        Navigator.showOverlay("/fxml/build_costs_dialog.fxml");
+    }
+
+    @FXML
     private void onSettings() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/settings_dialog.fxml");
     }
 
     @FXML
     private void onBuildPost() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -245,33 +324,47 @@ public class GameController {
                     return;
                 }
 
-                String intersectionId = chooseValue(
-                        "Setup Monitoring Post",
-                        "Choose an intersection for the setup monitoring post.",
-                        toIntersectionOptions(state, engine.getValidSetupPostIds(playerId))
-                );
-                if (intersectionId == null) {
+                if (!beginIntersectionSelection(
+                        "Click a highlighted intersection to place the setup monitoring post.",
+                        engine.getValidSetupPostIds(playerId),
+                        intersectionId -> {
+                            try {
+                                GameEngine currentEngine = GameSession.engine();
+                                GameState currentState = currentEngine.getState();
+                                currentEngine.placeSetupWatchPost(playerId, intersectionId);
+                                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
+                                log("[Setup] " + currentState.getCurrentPlayer().getName()
+                                        + " placed a monitoring post at " + intersectionId + ".");
+                                refresh();
+                            } catch (RuntimeException ex) {
+                                showError("Build Failed", ex.getMessage());
+                                refresh();
+                            }
+                        }
+                )) {
                     return;
                 }
-
-                engine.placeSetupWatchPost(playerId, intersectionId);
-                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
-                log("[Setup] " + state.getCurrentPlayer().getName() + " placed a monitoring post at " + intersectionId + ".");
             } else if (phase == TurnPhase.TRADE_BUILD) {
-                String intersectionId = chooseValue(
-                        "Build Monitoring Post",
-                        "Choose a valid intersection to build.",
-                        toIntersectionOptions(state, engine.getValidMonitoringPostIds(playerId))
-                );
-                if (intersectionId == null) {
+                if (!beginIntersectionSelection(
+                        "Click a highlighted intersection to build a monitoring post.",
+                        engine.getValidMonitoringPostIds(playerId),
+                        intersectionId -> {
+                            try {
+                                GameEngine currentEngine = GameSession.engine();
+                                String playerName = currentEngine.getState().getCurrentPlayer().getName();
+                                currentEngine.buildWatchPost(playerId, intersectionId);
+                                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
+                                log("[Build] " + playerName + " built a monitoring post at " + intersectionId + ".");
+                                checkVictory();
+                                refresh();
+                            } catch (RuntimeException ex) {
+                                showError("Build Failed", ex.getMessage());
+                                refresh();
+                            }
+                        }
+                )) {
                     return;
                 }
-
-                String playerName = state.getCurrentPlayer().getName();
-                engine.buildWatchPost(playerId, intersectionId);
-                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
-                log("[Build] " + playerName + " built a monitoring post at " + intersectionId + ".");
-                checkVictory();
             } else {
                 showInfo("Unavailable", "Monitoring posts can only be placed during setup or trade/build.");
                 return;
@@ -279,12 +372,14 @@ public class GameController {
         } catch (RuntimeException ex) {
             showError("Build Failed", ex.getMessage());
         }
-
-        refresh();
     }
 
     @FXML
     private void onBuildPipe() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -301,37 +396,49 @@ public class GameController {
                     return;
                 }
 
-                String pathId = chooseValue(
-                        "Setup Pipe",
-                        "Choose a path connected to the post you just placed.",
-                        toPathOptions(state, engine.getValidSetupRoadIds(playerId))
-                );
-                if (pathId == null) {
+                if (!beginPathSelection(
+                        "Click a highlighted path to place the setup pipe.",
+                        engine.getValidSetupRoadIds(playerId),
+                        pathId -> {
+                            try {
+                                GameEngine currentEngine = GameSession.engine();
+                                String playerName = currentEngine.getState().getCurrentPlayer().getName();
+                                currentEngine.placeSetupRoad(playerId, pathId);
+                                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
+                                log("[Setup] " + playerName + " placed a pipe on " + pathId + ".");
+                                if (currentEngine.getState().getTurnState().getPhase() == TurnPhase.RESOURCE_GATHERING) {
+                                    log("[Setup] Initial placement complete. Roll dice to begin the match.");
+                                }
+                                refresh();
+                            } catch (RuntimeException ex) {
+                                showError("Build Failed", ex.getMessage());
+                                refresh();
+                            }
+                        }
+                )) {
                     return;
-                }
-
-                String playerName = state.getCurrentPlayer().getName();
-                engine.placeSetupRoad(playerId, pathId);
-                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
-                log("[Setup] " + playerName + " placed a pipe on " + pathId + ".");
-                if (engine.getState().getTurnState().getPhase() == TurnPhase.RESOURCE_GATHERING) {
-                    log("[Setup] Initial placement complete. Roll dice to begin the match.");
                 }
             } else if (phase == TurnPhase.TRADE_BUILD) {
-                String pathId = chooseValue(
-                        "Build Pipe",
-                        "Choose a valid path to build.",
-                        toPathOptions(state, engine.getValidRoadIds(playerId))
-                );
-                if (pathId == null) {
+                if (!beginPathSelection(
+                        "Click a highlighted path to build a pipe.",
+                        engine.getValidRoadIds(playerId),
+                        pathId -> {
+                            try {
+                                GameEngine currentEngine = GameSession.engine();
+                                String playerName = currentEngine.getState().getCurrentPlayer().getName();
+                                currentEngine.buildRoad(playerId, pathId);
+                                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
+                                log("[Build] " + playerName + " built a pipe on " + pathId + ".");
+                                checkVictory();
+                                refresh();
+                            } catch (RuntimeException ex) {
+                                showError("Build Failed", ex.getMessage());
+                                refresh();
+                            }
+                        }
+                )) {
                     return;
                 }
-
-                String playerName = state.getCurrentPlayer().getName();
-                engine.buildRoad(playerId, pathId);
-                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
-                log("[Build] " + playerName + " built a pipe on " + pathId + ".");
-                checkVictory();
             } else {
                 showInfo("Unavailable", "Pipes can only be placed during setup or trade/build.");
                 return;
@@ -339,12 +446,14 @@ public class GameController {
         } catch (RuntimeException ex) {
             showError("Build Failed", ex.getMessage());
         }
-
-        refresh();
     }
 
     @FXML
     private void onUpgradeLab() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -357,29 +466,37 @@ public class GameController {
         }
 
         try {
-            String intersectionId = chooseValue(
-                    "Upgrade Laboratory",
-                    "Choose one of your monitoring posts to upgrade.",
-                    toIntersectionOptions(state, engine.getValidLaboratoryUpgradeIds(state.getCurrentPlayer().getId()))
-            );
-            if (intersectionId == null) {
+            if (!beginIntersectionSelection(
+                    "Click one of your highlighted monitoring posts to upgrade it.",
+                    engine.getValidLaboratoryUpgradeIds(state.getCurrentPlayer().getId()),
+                    intersectionId -> {
+                        try {
+                            GameEngine currentEngine = GameSession.engine();
+                            String playerName = currentEngine.getState().getCurrentPlayer().getName();
+                            currentEngine.upgradeLaboratory(currentEngine.getState().getCurrentPlayer().getId(), intersectionId);
+                            AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
+                            log("[Build] " + playerName + " upgraded " + intersectionId + " into a laboratory.");
+                            checkVictory();
+                            refresh();
+                        } catch (RuntimeException ex) {
+                            showError("Upgrade Failed", ex.getMessage());
+                            refresh();
+                        }
+                    }
+            )) {
                 return;
             }
-
-            String playerName = state.getCurrentPlayer().getName();
-            engine.upgradeLaboratory(state.getCurrentPlayer().getId(), intersectionId);
-            AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
-            log("[Build] " + playerName + " upgraded " + intersectionId + " into a laboratory.");
-            checkVictory();
         } catch (RuntimeException ex) {
             showError("Upgrade Failed", ex.getMessage());
         }
-
-        refresh();
     }
 
     @FXML
     private void onResolveNimon() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             return;
@@ -395,6 +512,10 @@ public class GameController {
 
     @FXML
     private void onRollDice() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -447,6 +568,10 @@ public class GameController {
 
     @FXML
     private void onEndTurn() {
+        if (isBoardSelectionActive()) {
+            showInfo("Placement Active", "Finish the current map placement first.");
+            return;
+        }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             return;
@@ -472,6 +597,7 @@ public class GameController {
 
     private void installFromEngine(GameState state) {
         board.render(state);
+        renderBoardSelection();
         teamList.getChildren().clear();
 
         Player active = state.getCurrentPlayer();
@@ -536,6 +662,40 @@ public class GameController {
         resBar.getChildren().add(resourceChip(ResourceIcons.Kind.ORE, 1));
         resBar.getChildren().add(resourceChip(ResourceIcons.Kind.BANANA, 2));
         updateDiceDisplay(null, "Roll the dice");
+    }
+
+    private void installSidebarHoverCards() {
+        bindSidebarHover(scoreboardBtn, () -> createInfoCard("Scoreboard"));
+        bindSidebarHover(tradeBtn, () -> createInfoCard("Trade"));
+        bindSidebarHover(cardsBtn, () -> createInfoCard("Cards"));
+        bindSidebarHover(buildCostsBtn, () -> createInfoCard("Build Costs"));
+        bindSidebarHover(settingsBtn, () -> createInfoCard("Settings"));
+        bindSidebarHover(buildPostHintZone, this::buildPostHoverCard);
+        bindSidebarHover(buildPipeHintZone, this::buildPipeHoverCard);
+        bindSidebarHover(upgradeLabHintZone, this::upgradeLabHoverCard);
+        bindSidebarHover(resolveNimonHintZone, this::moveNimonHoverCard);
+    }
+
+    private void configureSidebarHoverZones() {
+        configureActionHoverZone(buildPostHintZone, buildPostBtn);
+        configureActionHoverZone(buildPipeHintZone, buildPipeBtn);
+        configureActionHoverZone(upgradeLabHintZone, upgradeLabBtn);
+        configureActionHoverZone(resolveNimonHintZone, resolveNimonBtn);
+    }
+
+    private void configureActionHoverZone(StackPane hoverZone, Button button) {
+        hoverZone.setPickOnBounds(true);
+        button.mouseTransparentProperty().bind(button.disabledProperty());
+    }
+
+    private void bindSidebarHover(Node node, Supplier<VBox> cardSupplier) {
+        node.hoverProperty().addListener((obs, oldHovered, hovered) -> {
+            if (hovered) {
+                showSidebarHoverCard(node, cardSupplier.get());
+            } else if (sidebarHoverAnchor == node) {
+                hideSidebarHoverCard();
+            }
+        });
     }
 
     private HBox resourceChip(ResourceIcons.Kind kind, int count) {
@@ -730,15 +890,11 @@ public class GameController {
         endTurnBtn.setDisable(phase != TurnPhase.TRADE_BUILD);
 
         if (phase == TurnPhase.SETUP) {
-            buildPostBtn.setText("SETUP POST");
-            buildPipeBtn.setText("SETUP PIPE");
             buildPostBtn.setDisable(waitingForSetupPipe || GameSession.engine().getValidSetupPostIds(playerId).isEmpty());
             buildPipeBtn.setDisable(!waitingForSetupPipe || GameSession.engine().getValidSetupRoadIds(playerId).isEmpty());
             return;
         }
 
-        buildPostBtn.setText("BUILD POST");
-        buildPipeBtn.setText("BUILD PIPE");
         if (phase == TurnPhase.TRADE_BUILD) {
             buildPostBtn.setDisable(GameSession.engine().getValidMonitoringPostIds(playerId).isEmpty());
             buildPipeBtn.setDisable(GameSession.engine().getValidRoadIds(playerId).isEmpty());
@@ -747,6 +903,358 @@ public class GameController {
         if (phase == TurnPhase.MOVE_NIMON_UNGU) {
             resolveNimonBtn.setDisable(GameSession.engine().getValidNimonTargetTileIds().isEmpty());
         }
+
+        if (isBoardSelectionActive()) {
+            buildPostBtn.setDisable(true);
+            buildPipeBtn.setDisable(true);
+            upgradeLabBtn.setDisable(true);
+            resolveNimonBtn.setDisable(true);
+            rollDiceBtn.setDisable(true);
+            endTurnBtn.setDisable(true);
+        }
+    }
+
+    private VBox buildPostHoverCard() {
+        if (GameSession.hasEngine()) {
+            GameState state = GameSession.engine().getState();
+            if (state.getTurnState().getPhase() == TurnPhase.SETUP) {
+                return createHintCard(
+                        state.getTurnState().isWaitingForSetupPipe() ? "Setup Post" : "Setup Monitoring Post",
+                        state.getTurnState().isWaitingForSetupPipe()
+                                ? "Finish the free setup pipe first."
+                                : "Free during setup."
+                );
+            }
+        }
+        return createBuildCostCard("Build Post", buildCostProvider.getCost(BuildActionType.MONITORING_POST));
+    }
+
+    private VBox buildPipeHoverCard() {
+        if (GameSession.hasEngine()) {
+            GameState state = GameSession.engine().getState();
+            if (state.getTurnState().getPhase() == TurnPhase.SETUP) {
+                return createHintCard(
+                        "Setup Pipe",
+                        state.getTurnState().isWaitingForSetupPipe()
+                                ? "Free during setup."
+                                : "Available after the setup post."
+                );
+            }
+        }
+        return createBuildCostCard("Build Pipe", buildCostProvider.getCost(BuildActionType.PIPE));
+    }
+
+    private VBox upgradeLabHoverCard() {
+        return createBuildCostCard("Upgrade Lab", buildCostProvider.getCost(BuildActionType.LABORATORY));
+    }
+
+    private VBox moveNimonHoverCard() {
+        return createHintCard("Move Nimon", "No material cost.");
+    }
+
+    private VBox createInfoCard(String title) {
+        return hoverCardBox(title, null);
+    }
+
+    private VBox createHintCard(String title, String body) {
+        return hoverCardBox(title, body);
+    }
+
+    private VBox createBuildCostCard(String title, ResourceInventory cost) {
+        VBox box = hoverCardBox(title, null);
+        VBox list = new VBox(6);
+        list.getStyleClass().add("sidebar-tooltip__list");
+        for (ResourceType type : ResourceType.values()) {
+            int amount = cost.getAmount(type);
+            if (amount <= 0) {
+                continue;
+            }
+            HBox row = new HBox(8);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.getStyleClass().add("sidebar-tooltip__row");
+
+            Group icon = ResourceIcons.of(resourceIconKind(type));
+            icon.setScaleX(1.15);
+            icon.setScaleY(1.15);
+            StackPane iconSlot = new StackPane(icon);
+            iconSlot.getStyleClass().add("sidebar-tooltip__icon-slot");
+
+            Label count = new Label(amount + "x " + prettyResourceName(type));
+            count.getStyleClass().add("sidebar-tooltip__value");
+            row.getChildren().addAll(iconSlot, count);
+            list.getChildren().add(row);
+        }
+        box.getChildren().add(list);
+        return box;
+    }
+
+    private VBox hoverCardBox(String title, String body) {
+        VBox box = new VBox(4);
+        box.getStyleClass().add("sidebar-tooltip__box");
+        box.setFillWidth(false);
+
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("sidebar-tooltip__title");
+        titleLabel.setWrapText(false);
+        box.getChildren().add(titleLabel);
+
+        if (body != null && !body.isBlank()) {
+            Label bodyLabel = new Label(body);
+            bodyLabel.getStyleClass().add("sidebar-tooltip__body");
+            bodyLabel.setWrapText(false);
+            box.getChildren().add(bodyLabel);
+        }
+        return box;
+    }
+
+    private void showSidebarHoverCard(Node anchorNode, VBox content) {
+        if (content == null) {
+            hideSidebarHoverCard();
+            return;
+        }
+
+        sidebarHoverAnchor = anchorNode;
+        sidebarHoverPopup.getChildren().setAll(content);
+        sidebarHoverPopup.setVisible(true);
+        sidebarHoverPopup.applyCss();
+        sidebarHoverPopup.autosize();
+        double popupWidth = sidebarHoverPopup.prefWidth(-1);
+        double popupHeight = sidebarHoverPopup.prefHeight(-1);
+        sidebarHoverPopup.resize(popupWidth, popupHeight);
+        sidebarHoverPopup.layout();
+
+        Bounds anchorBounds = hud.sceneToLocal(anchorNode.localToScene(anchorNode.getBoundsInLocal()));
+        double x = anchorBounds.getMaxX() + 14;
+        double y = anchorBounds.getMinY() + (anchorBounds.getHeight() - popupHeight) / 2.0;
+
+        x = Math.min(x, hud.getWidth() - popupWidth - 24);
+        y = Math.max(18, Math.min(y, hud.getHeight() - popupHeight - 18));
+
+        sidebarHoverPopup.relocate(x, y);
+        sidebarHoverPopup.toFront();
+    }
+
+    private void hideSidebarHoverCard() {
+        sidebarHoverAnchor = null;
+        sidebarHoverPopup.setVisible(false);
+        sidebarHoverPopup.getChildren().clear();
+    }
+
+    public boolean beginIntersectionSelection(String prompt, List<String> ids, Consumer<String> onSelect) {
+        return beginBoardSelection(BoardSelectionType.INTERSECTION, ids, prompt, onSelect, null);
+    }
+
+    public boolean beginPathSelection(String prompt, List<String> ids, Consumer<String> onSelect) {
+        return beginBoardSelection(BoardSelectionType.PATH, ids, prompt, onSelect, null);
+    }
+
+    public boolean beginPathSelection(String prompt, List<String> ids, Consumer<String> onSelect, Runnable onCancel) {
+        return beginBoardSelection(BoardSelectionType.PATH, ids, prompt, onSelect, onCancel);
+    }
+
+    public boolean beginTileSelection(String prompt, List<String> ids, Consumer<String> onSelect) {
+        return beginBoardSelection(BoardSelectionType.TILE, ids, prompt, onSelect, null);
+    }
+
+    public boolean beginTileSelection(String prompt, List<String> ids, Consumer<String> onSelect, Runnable onCancel) {
+        return beginBoardSelection(BoardSelectionType.TILE, ids, prompt, onSelect, onCancel);
+    }
+
+    private boolean beginBoardSelection(
+            BoardSelectionType type,
+            List<String> ids,
+            String prompt,
+            Consumer<String> onSelect,
+            Runnable onCancel
+    ) {
+        if (ids == null || ids.isEmpty()) {
+            showInfo("Unavailable", "No valid placement spots available.");
+            return false;
+        }
+
+        pendingBoardSelection = new PendingBoardSelection(type, List.copyOf(ids), prompt, onSelect, onCancel);
+        renderBoardSelection();
+        log("[Select] " + prompt + " Right-click on the map to cancel.");
+        syncTimerAndPhaseUi();
+        return true;
+    }
+
+    private boolean isBoardSelectionActive() {
+        return pendingBoardSelection != null;
+    }
+
+    private void renderBoardSelection() {
+        if (boardSelectionLayer == null) {
+            return;
+        }
+
+        boardSelectionLayer.getChildren().clear();
+        if (pendingBoardSelection == null) {
+            return;
+        }
+
+        Rectangle clickCatcher = new Rectangle(BOARD_DESIGN_W, BOARD_DESIGN_H);
+        clickCatcher.setFill(Color.color(0, 0, 0, 0.001));
+        clickCatcher.setStroke(null);
+        clickCatcher.setOnMousePressed(MouseEvent::consume);
+        clickCatcher.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.SECONDARY) {
+                event.consume();
+                cancelBoardSelection();
+                return;
+            }
+            event.consume();
+        });
+        boardSelectionLayer.getChildren().add(clickCatcher);
+
+        switch (pendingBoardSelection.type()) {
+            case INTERSECTION -> pendingBoardSelection.ids().forEach(this::addIntersectionSelectionBubble);
+            case PATH -> pendingBoardSelection.ids().forEach(this::addPathSelectionBubble);
+            case TILE -> pendingBoardSelection.ids().forEach(this::addTileSelectionBubble);
+        }
+    }
+
+    private void addIntersectionSelectionBubble(String intersectionId) {
+        var point = board.getIntersectionPoint(intersectionId);
+        if (point == null) {
+            return;
+        }
+
+        Circle halo = new Circle(point.getX(), point.getY(), 16);
+        halo.setFill(Color.color(0.99, 0.87, 0.48, 0.22));
+        halo.setStroke(Color.web("#ffd23d"));
+        halo.setStrokeWidth(2.4);
+        halo.setStrokeType(StrokeType.OUTSIDE);
+
+        Circle core = new Circle(point.getX(), point.getY(), 7.5);
+        core.setFill(Color.web("#fff7da"));
+        core.setStroke(Color.web("#0e3a5a"));
+        core.setStrokeWidth(2);
+
+        wireSelectionNode(halo, intersectionId);
+        wireSelectionNode(core, intersectionId);
+        boardSelectionLayer.getChildren().addAll(halo, core);
+    }
+
+    private void addPathSelectionBubble(String pathId) {
+        Path path = GameSession.engine().getState().getBoard().getPath(pathId);
+        if (path == null) {
+            return;
+        }
+
+        HexBoard.PathSegment segment = board.getPathSegment(path);
+        if (segment == null) {
+            return;
+        }
+
+        Line glow = new Line(segment.start().getX(), segment.start().getY(), segment.end().getX(), segment.end().getY());
+        glow.setStroke(Color.color(0.99, 0.87, 0.48, 0.9));
+        glow.setStrokeWidth(14);
+        glow.setStrokeLineCap(StrokeLineCap.ROUND);
+        glow.setOpacity(0.75);
+
+        Line line = new Line(segment.start().getX(), segment.start().getY(), segment.end().getX(), segment.end().getY());
+        line.setStroke(Color.web("#fff7da"));
+        line.setStrokeWidth(8);
+        line.setStrokeLineCap(StrokeLineCap.ROUND);
+
+        var mid = segment.start().midpoint(segment.end());
+        Circle bubble = new Circle(mid.getX(), mid.getY(), 11);
+        bubble.setFill(Color.web("#fff7da"));
+        bubble.setStroke(Color.web("#0e3a5a"));
+        bubble.setStrokeWidth(2.2);
+
+        wireSelectionNode(glow, pathId);
+        wireSelectionNode(line, pathId);
+        wireSelectionNode(bubble, pathId);
+        boardSelectionLayer.getChildren().addAll(glow, line, bubble);
+    }
+
+    private void addTileSelectionBubble(String tileId) {
+        var center = board.getTileCenter(tileId);
+        if (center == null) {
+            return;
+        }
+
+        Polygon hex = new Polygon();
+        double radius = board.getHexRadius() - 8;
+        for (int corner = 0; corner < 6; corner++) {
+            double angle = Math.toRadians(60.0 * corner - 30.0);
+            hex.getPoints().addAll(
+                    center.getX() + radius * Math.cos(angle),
+                    center.getY() + radius * Math.sin(angle)
+            );
+        }
+        hex.setFill(Color.color(0.99, 0.87, 0.48, 0.18));
+        hex.setStroke(Color.web("#ffd23d"));
+        hex.setStrokeWidth(3);
+        hex.setStrokeLineJoin(StrokeLineJoin.ROUND);
+
+        Circle bubble = new Circle(center.getX(), center.getY(), 14);
+        bubble.setFill(Color.web("#fff7da"));
+        bubble.setStroke(Color.web("#0e3a5a"));
+        bubble.setStrokeWidth(2.2);
+
+        wireSelectionNode(hex, tileId);
+        wireSelectionNode(bubble, tileId);
+        boardSelectionLayer.getChildren().addAll(hex, bubble);
+    }
+
+    private void wireSelectionNode(Node node, String selectionId) {
+        node.setOnMousePressed(MouseEvent::consume);
+        node.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.SECONDARY) {
+                event.consume();
+                cancelBoardSelection();
+                return;
+            }
+            if (event.getButton() == MouseButton.PRIMARY) {
+                event.consume();
+                resolveBoardSelection(selectionId);
+            }
+        });
+    }
+
+    private void resolveBoardSelection(String selectionId) {
+        PendingBoardSelection selection = pendingBoardSelection;
+        pendingBoardSelection = null;
+        renderBoardSelection();
+        syncTimerAndPhaseUi();
+        if (selection != null) {
+            selection.onSelect().accept(selectionId);
+        }
+    }
+
+    private void cancelBoardSelection() {
+        PendingBoardSelection selection = pendingBoardSelection;
+        pendingBoardSelection = null;
+        renderBoardSelection();
+        syncTimerAndPhaseUi();
+        if (selection != null && selection.onCancel() != null) {
+            selection.onCancel().run();
+        } else if (GameSession.hasEngine()) {
+            refresh();
+        }
+    }
+
+    private ResourceIcons.Kind resourceIconKind(ResourceType type) {
+        return switch (type) {
+            case WOOD -> ResourceIcons.Kind.WOOD;
+            case BRICK -> ResourceIcons.Kind.BRICK;
+            case WHEAT -> ResourceIcons.Kind.WHEAT;
+            case ORE -> ResourceIcons.Kind.ORE;
+            case BANANA -> ResourceIcons.Kind.BANANA;
+        };
+    }
+
+    private String prettyResourceName(ResourceType type) {
+        return switch (type) {
+            case WOOD -> "Wood";
+            case BRICK -> "Brick";
+            case WHEAT -> "Wheat";
+            case ORE -> "Ore";
+            case BANANA -> "Banana";
+        };
     }
 
     private void fitBoard() {
@@ -831,6 +1339,114 @@ public class GameController {
         }
     }
 
+    private void queueBotAutomationIfNeeded() {
+        if (botAutomationQueued
+                || !GameSession.hasEngine()
+                || GameSession.isStartingOrderPending()
+                || diceAnimationRunning
+                || diceFlowContext != null) {
+            return;
+        }
+
+        GameEngine engine = GameSession.engine();
+        boolean pendingBotDiscard = engine.getState().getTurnState().getPhase() == TurnPhase.DISCARD
+                && engine.getState().getTurnState().getPendingDiscardPlayerIds().stream()
+                .anyMatch(engine::isBotPlayer);
+        if (!engine.isCurrentPlayerBot() && !pendingBotDiscard) {
+            return;
+        }
+
+        botAutomationQueued = true;
+        Platform.runLater(() -> {
+            botAutomationQueued = false;
+            runBotAutomation();
+        });
+    }
+
+    private void runBotAutomation() {
+        if (!GameSession.hasEngine() || GameSession.isStartingOrderPending() || diceAnimationRunning || diceFlowContext != null) {
+            return;
+        }
+
+        GameEngine engine = GameSession.engine();
+        int safety = 0;
+        while (GameSession.hasEngine() && safety++ < 24) {
+            GameState state = engine.getState();
+            TurnPhase phase = state.getTurnState().getPhase();
+
+            if (phase == TurnPhase.DISCARD) {
+                boolean discarded = autoResolvePendingBotDiscards(engine);
+                if (!engine.isCurrentPlayerBot()) {
+                    if (discarded) {
+                        refresh();
+                    }
+                    return;
+                }
+                if (!engine.getState().getTurnState().getPendingDiscardPlayerIds().isEmpty()) {
+                    Navigator.showOverlay("/fxml/discard_dialog.fxml");
+                    refresh();
+                    return;
+                }
+                continue;
+            }
+
+            if (!engine.isCurrentPlayerBot()) {
+                break;
+            }
+
+            try {
+                switch (phase) {
+                    case SETUP -> log("[Bot] " + engine.resolveBotSetupStep());
+                    case RESOURCE_GATHERING -> {
+                        Player bot = state.getCurrentPlayer();
+                        DiceRoll roll = engine.rollDice(DiceMode.RANDOM, null);
+                        updateDiceDisplay(roll, bot.getName() + " rolled");
+                        log("[Bot] " + bot.getName() + " rolled "
+                                + roll.getFirst() + " + " + roll.getSecond() + " = " + roll.total() + ".");
+                    }
+                    case MOVE_NIMON_UNGU -> log("[Bot] " + engine.resolveBotNimonFlow());
+                    case TRADE_BUILD -> log("[Bot] " + engine.executeBotTradeBuildAction());
+                    case GAME_OVER -> {
+                        checkVictory();
+                        refresh();
+                        return;
+                    }
+                    default -> {
+                        refresh();
+                        return;
+                    }
+                }
+            } catch (RuntimeException ex) {
+                log("[Bot] " + state.getCurrentPlayer().getName() + " stopped because: " + ex.getMessage());
+                refresh();
+                return;
+            }
+
+            if (engine.getState().isGameOver()) {
+                refresh();
+                checkVictory();
+                return;
+            }
+        }
+        refresh();
+    }
+
+    private boolean autoResolvePendingBotDiscards(GameEngine engine) {
+        boolean handled = false;
+        List<String> pendingIds = new ArrayList<>(engine.getState().getTurnState().getPendingDiscardPlayerIds());
+        for (String playerId : pendingIds) {
+            if (!engine.isBotPlayer(playerId)) {
+                continue;
+            }
+            Player player = engine.getState().getPlayerById(playerId);
+            int required = player.getTotalResourceCards() / 2;
+            engine.discardForSevenAutomatically(playerId);
+            log("[Bot] " + player.getName() + " auto-discarded " + required + " resources.");
+            handled = true;
+        }
+        return handled;
+    }
+
     private void promptNimonFlow() {
         GameEngine engine = GameSession.engine();
         GameState state = engine.getState();
@@ -838,32 +1454,46 @@ public class GameController {
             return;
         }
 
-        String tileId = chooseValue(
-                "Move Nimon Ungu",
-                "Choose a destination tile for Nimon Ungu.",
-                toTileOptions(state, engine.getValidNimonTargetTileIds())
-        );
-        if (tileId == null) {
+        if (!beginTileSelection(
+                "Click a highlighted tile to move Nimon Ungu.",
+                engine.getValidNimonTargetTileIds(),
+                tileId -> {
+                    try {
+                        GameEngine currentEngine = GameSession.engine();
+                        currentEngine.moveNimonAfterSeven(tileId);
+                        AudioEngine.get().playSfx(AudioEngine.Sfx.NIMON_UNGU);
+                        log("[Nimon] Moved to " + tileId + ".");
+
+                        if (currentEngine.getValidStealTargetsAfterSeven().isEmpty()) {
+                            currentEngine.finishNimonAfterSevenWithoutSteal();
+                            log("[Nimon] No valid steal target. Trade/build phase begins.");
+                        } else {
+                            Navigator.showOverlay("/fxml/steal_dialog.fxml");
+                        }
+                        refresh();
+                    } catch (RuntimeException ex) {
+                        showError("Nimon Flow Failed", ex.getMessage());
+                        refresh();
+                    }
+                }
+        )) {
             return;
-        }
-
-        engine.moveNimonAfterSeven(tileId);
-        AudioEngine.get().playSfx(AudioEngine.Sfx.NIMON_UNGU);
-        log("[Nimon] Moved to " + tileId + ".");
-
-        if (engine.getValidStealTargetsAfterSeven().isEmpty()) {
-            engine.finishNimonAfterSevenWithoutSteal();
-            log("[Nimon] No valid steal target. Trade/build phase begins.");
-        } else {
-            Navigator.showOverlay("/fxml/steal_dialog.fxml");
         }
     }
 
     private void beginStartingOrderFlow() {
         GameEngine engine = GameSession.engine();
-        startingOrderOriginalOrder = engine.getState().getPlayers().stream()
-                .map(player -> new PlayerConfig(player.getName(), player.getColor()))
-                .toList();
+        startingOrderBaseConfig = engine.getActiveConfig();
+        if (startingOrderBaseConfig == null) {
+            startingOrderBaseConfig = new GameConfig(
+                    engine.getState().getPlayers().stream()
+                            .map(player -> new PlayerConfig(player.getName(), player.getColor()))
+                            .toList(),
+                    BoardMode.FIXED,
+                    engine.isManualDiceEnabled()
+            );
+        }
+        startingOrderOriginalOrder = startingOrderBaseConfig.getPlayerConfigs();
         startingOrderContenders = new ArrayList<>(startingOrderOriginalOrder);
         startingOrderRoundRolls.clear();
         startingOrderRollIndex = 0;
@@ -911,10 +1541,8 @@ public class GameController {
         if (highest.size() == 1) {
             PlayerConfig starter = highest.getFirst();
             GameEngine rotatedEngine = new GameEngine();
-            rotatedEngine.startNewGame(new GameConfig(
-                    rotateFromStarter(startingOrderOriginalOrder, starter),
-                    BoardMode.FIXED,
-                    GameSession.engine().isManualDiceEnabled()
+            rotatedEngine.startNewGame(startingOrderBaseConfig.withPlayerConfigs(
+                    rotateFromStarter(startingOrderOriginalOrder, starter)
             ));
             GameSession.setEngine(rotatedEngine);
             GameSession.setStartingOrderPending(false);
@@ -1005,6 +1633,7 @@ public class GameController {
     }
 
     private void resetStartingOrderFlow() {
+        startingOrderBaseConfig = null;
         startingOrderOriginalOrder = List.of();
         startingOrderContenders = List.of();
         startingOrderRoundRolls.clear();
@@ -1013,59 +1642,6 @@ public class GameController {
 
     private DiceRoll randomRoll() {
         return DiceRoll.of(1 + (int) (Math.random() * 6), 1 + (int) (Math.random() * 6));
-    }
-
-    private String chooseValue(String title, String header, List<Option> options) {
-        if (options.isEmpty()) {
-            showInfo(title, "No valid options available.");
-            return null;
-        }
-
-        Map<String, String> valuesByLabel = new LinkedHashMap<>();
-        for (Option option : options) {
-            valuesByLabel.put(option.label(), option.value());
-        }
-
-        List<String> labels = new ArrayList<>(valuesByLabel.keySet());
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.getFirst(), labels);
-        dialog.setTitle(title);
-        dialog.setHeaderText(header);
-        dialog.setContentText("Options:");
-        Optional<String> result = dialog.showAndWait();
-        return result.map(valuesByLabel::get).orElse(null);
-    }
-
-    private List<Option> toIntersectionOptions(GameState state, List<String> ids) {
-        return ids.stream()
-                .map(id -> {
-                    Intersection intersection = state.getBoard().getIntersection(id);
-                    String adjacent = intersection.getAdjacentTiles().stream()
-                            .map(HexTile::getId)
-                            .toList()
-                            .toString();
-                    return new Option(id + "  " + adjacent, id);
-                })
-                .toList();
-    }
-
-    private List<Option> toPathOptions(GameState state, List<String> ids) {
-        return ids.stream()
-                .map(id -> {
-                    Path path = state.getBoard().getPath(id);
-                    String label = id + "  (" + path.getEndpointA().getId() + " - " + path.getEndpointB().getId() + ")";
-                    return new Option(label, id);
-                })
-                .toList();
-    }
-
-    private List<Option> toTileOptions(GameState state, List<String> ids) {
-        return ids.stream()
-                .map(id -> {
-                    HexTile tile = state.getBoard().getTile(id);
-                    String label = id + "  (" + tile.getTerrainType() + (tile.getToken() == null ? "" : ", token " + tile.getToken()) + ")";
-                    return new Option(label, id);
-                })
-                .toList();
     }
 
     private void showInfo(String title, String message) {

@@ -108,7 +108,7 @@
                 <Region VBox.vgrow="ALWAYS"/>
 
                 <Label styleClass="warn-band"
-                       text="Plugins are loaded as .jar via the ServiceLoader API."
+                       text="Map and bot plugins are loaded from .jar via runtime reflection before the match starts."
                        maxWidth="Infinity"/>
             </VBox>
         </GridPane>

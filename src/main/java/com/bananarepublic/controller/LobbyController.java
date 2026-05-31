@@ -4,13 +4,18 @@ import com.bananarepublic.engine.BoardMode;
 import com.bananarepublic.engine.GameConfig;
 import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.engine.PlayerConfig;
+import com.bananarepublic.model.board.Board;
 import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.plugin.MapPluginLoader;
+import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -40,6 +45,8 @@ public class LobbyController {
 
     private final List<PlayerRow> rows = new ArrayList<>();
     private final Map<String, PlayerRow> selectedColorOwner = new LinkedHashMap<>();
+    private File selectedMapPluginFile;
+    private File selectedBotPluginFile;
 
     @FXML
     public void initialize() {
@@ -62,6 +69,7 @@ public class LobbyController {
             selectedColorOwner.put(row.selectedColor, row);
         }
         refreshSwatchStates();
+        refreshBotAvailability();
     }
 
     private void refreshSwatchStates() {
@@ -81,12 +89,22 @@ public class LobbyController {
     }
 
     private void selectColor(PlayerRow row, String color) {
-        if (selectedColorOwner.containsKey(color) && selectedColorOwner.get(color) != row) {
-            AudioEngine.get().playSfx(AudioEngine.Sfx.ERROR);
+        PlayerRow currentOwner = selectedColorOwner.get(color);
+        if (currentOwner == row) {
+            AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
             return;
         }
+
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
-        selectedColorOwner.remove(row.selectedColor);
+        String previousColor = row.selectedColor;
+
+        if (currentOwner != null) {
+            currentOwner.selectedColor = previousColor;
+            selectedColorOwner.put(previousColor, currentOwner);
+        } else {
+            selectedColorOwner.remove(previousColor);
+        }
+
         row.selectedColor = color;
         selectedColorOwner.put(color, row);
         refreshSwatchStates();
@@ -103,6 +121,7 @@ public class LobbyController {
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         File f = pickJar("Select Map Plugin");
         if (f != null) {
+            selectedMapPluginFile = f;
             mapPluginLabel.setText(f.getName());
         }
     }
@@ -112,7 +131,9 @@ public class LobbyController {
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         File f = pickJar("Select Bot Plugin");
         if (f != null) {
+            selectedBotPluginFile = f;
             botPluginLabel.setText(f.getName());
+            refreshBotAvailability();
         }
     }
 
@@ -129,17 +150,66 @@ public class LobbyController {
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         java.util.List<PlayerConfig> configs = new java.util.ArrayList<>();
         for (PlayerRow row : rows) {
-            String name = row.nameField.getText().isBlank() ? "Player " + row.index : row.nameField.getText();
-            configs.add(new PlayerConfig(name, toEngineColor(row.selectedColor)));
+            boolean botControlled = row.botToggle.isSelected();
+            String fallbackName = botControlled ? "Bot " + row.index : "Player " + row.index;
+            String name = row.nameField.getText().isBlank() ? fallbackName : row.nameField.getText();
+            configs.add(new PlayerConfig(name, toEngineColor(row.selectedColor), botControlled));
             System.out.printf("[Lobby] Player %d: %s (%s)%n",
                 row.index, name, row.selectedColor);
         }
+
+        boolean anyBotPlayer = rows.stream().anyMatch(row -> row.botToggle.isSelected());
+        if (anyBotPlayer && selectedBotPluginFile == null) {
+            showAlert("Bot Plugin Belum Dipilih",
+                    "Pilih file .jar bot terlebih dahulu sebelum menandai seat sebagai bot.",
+                    Alert.AlertType.ERROR);
+            return;
+        }
+
+        Board boardOverride = null;
+        BoardMode boardMode = BoardMode.FIXED;
+        if (selectedMapPluginFile != null) {
+            try {
+                boardOverride = new MapPluginLoader().loadFromJar(selectedMapPluginFile).generateBoard();
+                boardMode = BoardMode.PLUGIN;
+            } catch (PluginLoadException ex) {
+                showAlert("Gagal Memuat Plugin Peta", ex.getMessage(), Alert.AlertType.ERROR);
+                return;
+            }
+        }
+
         GameEngine engine = new GameEngine();
-        engine.startNewGame(new GameConfig(configs, BoardMode.FIXED, true));
+        engine.startNewGame(new GameConfig(
+                configs,
+                boardMode,
+                true,
+                boardOverride,
+                selectedMapPluginFile == null ? null : selectedMapPluginFile.getAbsolutePath(),
+                selectedBotPluginFile == null ? null : selectedBotPluginFile.getAbsolutePath()
+        ));
         GameSession.setEngine(engine);
         GameSession.markSessionStartNow();
         GameSession.setStartingOrderPending(true);
         Navigator.goTo("/fxml/game.fxml");
+    }
+
+    private void refreshBotAvailability() {
+        boolean enabled = selectedBotPluginFile != null;
+        for (PlayerRow row : rows) {
+            row.botToggle.setDisable(!enabled);
+            if (!enabled) {
+                row.botToggle.setSelected(false);
+            }
+            row.updateBotPresentation();
+        }
+    }
+
+    private void showAlert(String title, String message, Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     private static PlayerColor toEngineColor(String css) {
@@ -156,6 +226,7 @@ public class LobbyController {
         final int index;
         final HBox node;
         final TextField nameField;
+        final CheckBox botToggle;
         final Map<String, Region> swatches = new LinkedHashMap<>();
         String selectedColor;
 
@@ -174,6 +245,10 @@ public class LobbyController {
             nameField = new TextField(name);
             HBox.setHgrow(nameField, javafx.scene.layout.Priority.ALWAYS);
 
+            botToggle = new CheckBox("BOT");
+            botToggle.setStyle("-fx-font-size: 11px; -fx-text-fill: -ink-2;");
+            botToggle.setOnAction(e -> updateBotPresentation());
+
             HBox swatchRow = new HBox(6);
             for (String c : COLORS) {
                 Region s = new Region();
@@ -183,11 +258,19 @@ public class LobbyController {
                 swatchRow.getChildren().add(s);
             }
 
-            node = new HBox(14, numberChip, nameField, swatchRow);
+            node = new HBox(14, numberChip, nameField, botToggle, swatchRow);
             node.setStyle("-fx-padding: 10 12; -fx-background-radius: 10;"
                 + " -fx-background-color: rgba(255, 248, 225, 0.55);"
                 + " -fx-border-color: -parchment-line; -fx-border-radius: 10; -fx-border-width: 1;");
             node.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        }
+
+        void updateBotPresentation() {
+            boolean bot = botToggle.isSelected();
+            nameField.setDisable(bot);
+            if (bot && nameField.getText().isBlank()) {
+                nameField.setText("Bot " + index);
+            }
         }
     }
 }

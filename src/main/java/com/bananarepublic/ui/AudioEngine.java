@@ -30,6 +30,8 @@ public final class AudioEngine {
     public static AudioEngine get() { return INSTANCE; }
 
     private MediaPlayer bgmPlayer;
+    private boolean audioAvailable = !isHeadlessTestEnvironment();
+    private boolean audioDisabledLogged = false;
     private boolean gameBgmToggle = false;
     private double bgmVolume = 0.45;
     private double sfxVolume = 0.80;
@@ -40,10 +42,12 @@ public final class AudioEngine {
     // ── BGM ──────────────────────────────────────────────────────────────────
 
     public void playMenuBgm() {
+        if (!audioAvailable) return;
         runOnFx(() -> switchBgm(BGM_MENU, true));
     }
 
     public void playGameBgm() {
+        if (!audioAvailable) return;
         runOnFx(() -> {
             gameBgmToggle = false;
             switchBgm(BGM_GAME_1, false);
@@ -61,6 +65,7 @@ public final class AudioEngine {
     }
 
     private void switchBgm(String resource, boolean loop) {
+        if (!audioAvailable) return;
         // Must run on FX thread
         if (bgmPlayer != null) {
             bgmPlayer.stop();
@@ -70,7 +75,13 @@ public final class AudioEngine {
         Media media = loadMedia(resource);
         if (media == null) return;
 
-        MediaPlayer player = new MediaPlayer(media);
+        MediaPlayer player;
+        try {
+            player = new MediaPlayer(media);
+        } catch (Throwable t) {
+            disableAudio("BGM player init failed", t);
+            return;
+        }
         player.setVolume(muted ? 0 : bgmVolume);
         player.setOnError(() -> System.err.println(
                 "[AudioEngine] BGM error: " + player.getError()));
@@ -96,14 +107,20 @@ public final class AudioEngine {
 
     // stopAfterMillis <= 0 means play to end
     public void playSfx(Sfx sfx, double stopAfterMillis) {
-        if (muted) return;
+        if (muted || !audioAvailable) return;
         runOnFx(() -> {
             Media media = loadMedia(sfx.path);
             if (media == null) {
                 System.err.println("[AudioEngine] SFX not found: " + sfx.path);
                 return;
             }
-            MediaPlayer player = new MediaPlayer(media);
+            MediaPlayer player;
+            try {
+                player = new MediaPlayer(media);
+            } catch (Throwable t) {
+                disableAudio("SFX player init failed", t);
+                return;
+            }
             player.setVolume(sfxVolume);
             if (stopAfterMillis > 0) {
                 player.setStopTime(javafx.util.Duration.millis(stopAfterMillis));
@@ -150,7 +167,10 @@ public final class AudioEngine {
         }
     }
 
-    private static Media loadMedia(String resource) {
+    private Media loadMedia(String resource) {
+        if (!audioAvailable) {
+            return null;
+        }
         URL url = AudioEngine.class.getResource(resource);
         if (url == null) {
             System.err.println("[AudioEngine] Resource not found: " + resource);
@@ -158,13 +178,29 @@ public final class AudioEngine {
         }
         try {
             return new Media(url.toExternalForm());
-        } catch (Exception e) {
-            System.err.println("[AudioEngine] Failed to load media: " + resource + " — " + e.getMessage());
+        } catch (Throwable t) {
+            disableAudio("Failed to load media: " + resource, t);
             return null;
         }
     }
 
     private static double clamp(double v) {
         return Math.max(0.0, Math.min(1.0, v));
+    }
+
+    private static boolean isHeadlessTestEnvironment() {
+        return Boolean.getBoolean("testfx.headless")
+                || "Monocle".equalsIgnoreCase(System.getProperty("glass.platform"))
+                || "Headless".equalsIgnoreCase(System.getProperty("monocle.platform"));
+    }
+
+    private void disableAudio(String context, Throwable t) {
+        audioAvailable = false;
+        stopBgm();
+        if (audioDisabledLogged) {
+            return;
+        }
+        audioDisabledLogged = true;
+        System.err.println("[AudioEngine] Audio disabled: " + context + " — " + t);
     }
 }

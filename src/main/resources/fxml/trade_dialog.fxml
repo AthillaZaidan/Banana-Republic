@@ -27,6 +27,9 @@
                        onMouseClicked="#onSelectMaritime"/>
             </HBox>
 
+            <Label fx:id="tradeStateLabel" managed="false" visible="false" wrapText="true"
+                   styleClass="warn-band" text="Pending offer"/>
+
             <Label styleClass="eyebrow" text="I WANT TO GIVE">
                 <VBox.margin><Insets top="6"/></VBox.margin>
             </Label>
@@ -52,8 +55,12 @@
         </VBox>
 
         <HBox styleClass="modal__footer">
-            <Button styleClass="btn,btn-outline" text="CANCEL" onAction="#onClose"/>
-            <Button styleClass="btn,btn-gold"    text="SUBMIT OFFER" onAction="#onSubmit"/>
+            <Button fx:id="closeBtn" styleClass="btn,btn-outline" text="CANCEL" onAction="#onClose"/>
+            <Button fx:id="rejectBtn" styleClass="btn,btn-outline" text="REJECT"
+                    onAction="#onReject" managed="false" visible="false"/>
+            <Button fx:id="acceptBtn" styleClass="btn,btn-outline" text="ACCEPT"
+                    onAction="#onAccept" managed="false" visible="false"/>
+            <Button fx:id="submitBtn" styleClass="btn,btn-gold" text="SUBMIT OFFER" onAction="#onSubmit"/>
         </HBox>
     </VBox>
 </StackPane>

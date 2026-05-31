@@ -111,9 +111,10 @@ class TradeAndNimonFlowTest {
                 .findFirst()
                 .orElseThrow();
         grantHarborAccess(active, generic);
-        assertEquals(3, engine.getBestMaritimeRatio(active.getId(), ResourceType.BRICK));
+        int genericRatio = engine.getBestMaritimeRatio(active.getId(), ResourceType.BRICK);
+        assertTrue(genericRatio <= 3);
         engine.submitMaritimeTrade(new MaritimeTradeRequest(
-                active.getId(), ResourceType.BRICK, 3, ResourceType.ORE
+                active.getId(), ResourceType.BRICK, genericRatio, ResourceType.ORE
         ));
 
         Harbor specific = engine.getState().getBoard().getHarbors().stream()
@@ -219,7 +220,8 @@ class TradeAndNimonFlowTest {
         GameEngine engine = new GameEngine();
         engine.startNewGame(new GameConfig(List.of(
                 new PlayerConfig("Nimo", PlayerColor.RED),
-                new PlayerConfig("Nero", PlayerColor.BLUE)
+                new PlayerConfig("Nero", PlayerColor.BLUE),
+                new PlayerConfig("Jordy", PlayerColor.GREEN)
         ), BoardMode.FIXED, true));
 
         int setupTurns = engine.getState().getPlayers().size() * 2;

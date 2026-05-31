@@ -19,7 +19,8 @@ class PluginExperimentCardAdapterTest {
         GameEngine engine = new GameEngine();
         engine.startNewGame(new GameConfig(List.of(
                 new PlayerConfig("Nimo", PlayerColor.RED),
-                new PlayerConfig("Nero", PlayerColor.BLUE)
+                new PlayerConfig("Nero", PlayerColor.BLUE),
+                new PlayerConfig("Jordy", PlayerColor.GREEN)
         ), BoardMode.FIXED, true));
         com.bananarepublic.model.player.Player active = engine.getState().getCurrentPlayer();
         active.addResource(ResourceType.WOOD, 1);
@@ -39,7 +40,7 @@ class PluginExperimentCardAdapterTest {
             @Override
             public void applyEffect(GameState state, Player player) {
                 assertEquals(active.getName(), player.getName());
-                assertEquals(2, state.getAllPlayers().size());
+                assertEquals(3, state.getAllPlayers().size());
                 assertTrue(state.getBank().hasResource(ResourceType.BRICK, 1));
                 state.getBank().takeResource(ResourceType.BRICK, 1);
                 player.removeResource(ResourceType.WOOD, 1);
