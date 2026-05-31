@@ -12,6 +12,7 @@ import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.plugin.PluginExperimentCardAdapter;
 import com.bananarepublic.ui.GameSession;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
@@ -120,7 +121,7 @@ public class CardsDialogController {
         footer.setMaxWidth(Double.MAX_VALUE);
 
         box.getChildren().addAll(header, body, footer);
-        box.setOnMouseClicked(e -> select(box));
+        box.setOnMouseClicked(e -> { AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK); select(box); });
         return box;
     }
 
@@ -144,6 +145,7 @@ public class CardsDialogController {
 
     @FXML
     private void onBuy() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             showAlert("Error", "Tidak ada engine aktif.");
             return;
@@ -162,6 +164,7 @@ public class CardsDialogController {
 
     @FXML
     private void onPlay() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (selectedCard == null) {
             showAlert("Pilih Kartu", "Pilih kartu yang ingin dimainkan.");
             return;
@@ -222,7 +225,7 @@ public class CardsDialogController {
     }
 
     @FXML
-    private void onClose() { close(); }
+    private void onClose() { AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK); close(); }
 
     private void close() {
         Navigator.closeOverlay(root);

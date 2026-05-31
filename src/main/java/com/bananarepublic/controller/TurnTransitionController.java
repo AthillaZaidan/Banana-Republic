@@ -2,6 +2,7 @@ package com.bananarepublic.controller;
 
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -22,7 +23,7 @@ public class TurnTransitionController {
 
     @FXML
     private void onReady() {
-        System.out.println("[TurnTransition] ready");
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.goTo("/fxml/game.fxml");
     }
 

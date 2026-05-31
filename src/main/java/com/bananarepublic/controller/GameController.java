@@ -18,6 +18,7 @@ import com.bananarepublic.service.victory.VictoryService;
 import com.bananarepublic.ui.DiceDialogRequest;
 import com.bananarepublic.ui.DiceDialogResult;
 import com.bananarepublic.ui.DicePips;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.HexBoard;
 import com.bananarepublic.ui.LivingBackground;
@@ -111,6 +112,7 @@ public class GameController {
     public void initialize() {
         GameSession.setGameController(this);
         LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
+        AudioEngine.get().playGameBgm();
 
         board = new HexBoard(GameSession.hasEngine() ? GameSession.engine().getState() : null, BOARD_DESIGN_W, BOARD_DESIGN_H);
         boardCanvas = new Group(board);
@@ -195,6 +197,7 @@ public class GameController {
 
     @FXML
     private void onScoreboard() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -213,11 +216,13 @@ public class GameController {
 
     @FXML
     private void onTrade() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/trade_dialog.fxml");
     }
 
     @FXML
     private void onCards() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/cards_dialog.fxml");
     }
 
@@ -228,6 +233,7 @@ public class GameController {
 
     @FXML
     private void onSettings() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/settings_dialog.fxml");
     }
 
@@ -259,6 +265,7 @@ public class GameController {
                 }
 
                 engine.placeSetupWatchPost(playerId, intersectionId);
+                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
                 log("[Setup] " + state.getCurrentPlayer().getName() + " placed a monitoring post at " + intersectionId + ".");
             } else if (phase == TurnPhase.TRADE_BUILD) {
                 String intersectionId = chooseValue(
@@ -272,6 +279,7 @@ public class GameController {
 
                 String playerName = state.getCurrentPlayer().getName();
                 engine.buildWatchPost(playerId, intersectionId);
+                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
                 log("[Build] " + playerName + " built a monitoring post at " + intersectionId + ".");
                 checkVictory();
             } else {
@@ -314,6 +322,7 @@ public class GameController {
 
                 String playerName = state.getCurrentPlayer().getName();
                 engine.placeSetupRoad(playerId, pathId);
+                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
                 log("[Setup] " + playerName + " placed a pipe on " + pathId + ".");
                 if (engine.getState().getTurnState().getPhase() == TurnPhase.RESOURCE_GATHERING) {
                     log("[Setup] Initial placement complete. Roll dice to begin the match.");
@@ -330,6 +339,7 @@ public class GameController {
 
                 String playerName = state.getCurrentPlayer().getName();
                 engine.buildRoad(playerId, pathId);
+                AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
                 log("[Build] " + playerName + " built a pipe on " + pathId + ".");
                 checkVictory();
             } else {
@@ -368,6 +378,7 @@ public class GameController {
 
             String playerName = state.getCurrentPlayer().getName();
             engine.upgradeLaboratory(state.getCurrentPlayer().getId(), intersectionId);
+            AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
             log("[Build] " + playerName + " upgraded " + intersectionId + " into a laboratory.");
             checkVictory();
         } catch (RuntimeException ex) {
@@ -379,6 +390,7 @@ public class GameController {
 
     @FXML
     private void onResolveNimon() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -445,6 +457,7 @@ public class GameController {
 
     @FXML
     private void onEndTurn() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             return;
         }
@@ -823,6 +836,7 @@ public class GameController {
             return;
         }
         if (GameSession.engine().getState().isGameOver()) {
+            AudioEngine.get().playSfx(AudioEngine.Sfx.ACHIEVEMENT);
             Navigator.showOverlay("/fxml/victory_dialog.fxml");
         }
     }
@@ -952,6 +966,7 @@ public class GameController {
         }
 
         engine.moveNimonAfterSeven(tileId);
+        AudioEngine.get().playSfx(AudioEngine.Sfx.NIMON_UNGU);
         log("[Nimon] Moved to " + tileId + ".");
 
         if (engine.getValidStealTargetsAfterSeven().isEmpty()) {
@@ -1055,7 +1070,7 @@ public class GameController {
         String playerName = state.getCurrentPlayer().getName();
 
         try {
-            DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
+                DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
             animateDiceRoll(roll, playerName + " rolled", () -> {
                 log("[Roll] " + playerName + " rolled "
                         + roll.getFirst() + " + " + roll.getSecond()
@@ -1187,6 +1202,7 @@ public class GameController {
     }
 
     private void showError(String title, String message) {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.ERROR);
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
         alert.setHeaderText(null);

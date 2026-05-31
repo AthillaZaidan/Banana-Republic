@@ -4,6 +4,7 @@ import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.Stepper;
@@ -61,6 +62,7 @@ public class DiscardDialogController {
 
     @FXML
     private void onConfirm() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         ResourceInventory discarded = new ResourceInventory();
         for (Map.Entry<ResourceType, Stepper> entry : steppersByType.entrySet()) {
             int amount = entry.getValue().valueProperty().get();

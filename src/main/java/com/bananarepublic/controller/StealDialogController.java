@@ -1,7 +1,8 @@
 package com.bananarepublic.controller;
 
-import com.bananarepublic.ui.Navigator;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
+import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -88,7 +89,7 @@ public class StealDialogController {
         tag.setStyle("-fx-font-size: 9px;");
 
         tile.getChildren().addAll(chip, name, cards, random, tag);
-        tile.setOnMouseClicked(e -> select(tile, t.playerId()));
+        tile.setOnMouseClicked(e -> { AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK); select(tile, t.playerId()); });
         return tile;
     }
 
@@ -112,6 +113,7 @@ public class StealDialogController {
     private void onConfirm() {
         try {
             if (selectedPlayerId != null) {
+                AudioEngine.get().playSfx(AudioEngine.Sfx.DAGGER);
                 GameSession.engine().stealAfterSeven(selectedPlayerId);
             } else {
                 GameSession.engine().finishNimonAfterSevenWithoutSteal();
@@ -128,7 +130,7 @@ public class StealDialogController {
     }
 
     @FXML
-    private void onClose() { close(); }
+    private void onClose() { AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK); close(); }
 
     private void close() {
         if (GameSession.hasEngine()) {

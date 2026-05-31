@@ -2,6 +2,7 @@ package com.bananarepublic.controller;
 
 import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.exception.SaveLoadException;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
@@ -18,17 +19,18 @@ public class MainMenuController {
     @FXML
     public void initialize() {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.PARCHMENT);
+        AudioEngine.get().playMenuBgm();
     }
 
     @FXML
     private void onNewGame() {
-        System.out.println("[MainMenu] NEW GAME");
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.goTo("/fxml/lobby.fxml");
     }
 
     @FXML
     private void onLoadGame() {
-        System.out.println("[MainMenu] LOAD GAME");
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Load Game");
         chooser.getExtensionFilters().add(
@@ -50,11 +52,13 @@ public class MainMenuController {
 
     @FXML
     private void onExit() {
-        System.out.println("[MainMenu] EXIT");
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
+        AudioEngine.get().stopBgm();
         Navigator.primary().close();
     }
 
     private void showAlert(String title, String message, Alert.AlertType type) {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.ERROR);
         Alert alert = new Alert(type);
         alert.setTitle(title);
         alert.setHeaderText(null);
