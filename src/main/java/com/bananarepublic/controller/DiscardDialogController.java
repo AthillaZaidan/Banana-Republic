@@ -5,6 +5,7 @@ import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.ui.AudioEngine;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.Stepper;
@@ -15,6 +16,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -33,6 +35,7 @@ public class DiscardDialogController {
     @FXML private Label ruleText;
     @FXML private Label progressLabel;
     @FXML private Button confirmBtn;
+    @FXML private Pane discardWarnIcon;
 
     private int required;
     private Player discardPlayer;
@@ -41,6 +44,7 @@ public class DiscardDialogController {
 
     @FXML
     public void initialize() {
+        discardWarnIcon.getChildren().setAll(GameIcons.warning());
         if (!GameSession.hasEngine()) {
             close();
             return;

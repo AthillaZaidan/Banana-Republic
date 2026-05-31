@@ -9,6 +9,7 @@ import com.bananarepublic.model.player.PlayerColor;
 import com.bananarepublic.plugin.MapPluginLoader;
 import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.ui.AudioEngine;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
@@ -42,6 +43,8 @@ public class LobbyController {
     @FXML private Label mapPluginLabel;
     @FXML private Label botPluginLabel;
     @FXML private Button startBtn;
+    @FXML private Pane mapPluginIconPane;
+    @FXML private Pane botPluginIconPane;
 
     private final List<PlayerRow> rows = new ArrayList<>();
     private final Map<String, PlayerRow> selectedColorOwner = new LinkedHashMap<>();
@@ -51,6 +54,8 @@ public class LobbyController {
     @FXML
     public void initialize() {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.PARCHMENT);
+        mapPluginIconPane.getChildren().setAll(GameIcons.anchor());
+        botPluginIconPane.getChildren().setAll(GameIcons.bot());
         playerCountBox.getItems().setAll(3, 4);
         playerCountBox.valueProperty().addListener((obs, oldV, newV) -> rebuildPlayerRows(newV));
         playerCountBox.setValue(4);

@@ -17,7 +17,7 @@
     <VBox styleClass="modal" maxWidth="720" maxHeight="-Infinity">
 
         <HBox styleClass="modal__header" alignment="CENTER_LEFT">
-            <Label styleClass="modal__title" text="🏆  DECLARE VICTORY?"
+            <Label styleClass="modal__title" text="DECLARE VICTORY?"
                    HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
         </HBox>

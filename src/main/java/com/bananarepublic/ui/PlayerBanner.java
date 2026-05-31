@@ -64,7 +64,7 @@ public final class PlayerBanner extends HBox {
         HBox stats = new HBox(10);
         stats.getStyleClass().add("player-banner__stats");
         stats.setAlignment(Pos.CENTER_LEFT);
-        stats.getChildren().addAll(statLabel("🃏 " + cards), statLabel("⚔ " + knights));
+        stats.getChildren().addAll(statLabel("Cards: " + cards), statLabel("Knt: " + knights));
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         stats.getChildren().add(spacer);

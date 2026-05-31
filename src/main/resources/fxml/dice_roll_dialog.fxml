@@ -15,7 +15,7 @@
     <VBox styleClass="modal" maxWidth="680" maxHeight="-Infinity">
 
         <HBox styleClass="modal__header" alignment="CENTER_LEFT">
-            <Label fx:id="titleLabel" styleClass="modal__title" text="🎲  ROLL DICE"
+            <Label fx:id="titleLabel" styleClass="modal__title" text="ROLL DICE"
                    HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
         </HBox>

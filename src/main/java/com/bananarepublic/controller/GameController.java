@@ -537,7 +537,7 @@ public class GameController {
 
         diceFlowContext = DiceFlowContext.NORMAL_TURN;
         showDiceDialog(
-                "🎲  ROLL DICE",
+                "ROLL DICE",
                 "Choose random roll or pick both dice manually.",
                 "ROLL DICE",
                 engine.isManualDiceEnabled()
@@ -747,11 +747,11 @@ public class GameController {
         HBox stats = new HBox(8);
         stats.setAlignment(Pos.CENTER_LEFT);
         stats.getChildren().addAll(
-                statCell("🛢", pipe + "/15"),
-                statCell("🛡", post + "/5"),
-                statCell("🔬", lab + "/4"),
-                statCell("🃏", String.valueOf(cards)),
-                statCell("📜", String.valueOf(dev))
+                statCell("PIPE", pipe + "/15"),
+                statCell("POST", post + "/5"),
+                statCell("LAB", lab + "/4"),
+                statCell("CRD", String.valueOf(cards)),
+                statCell("DEV", String.valueOf(dev))
         );
 
         row.getChildren().addAll(header, stats);
@@ -865,7 +865,7 @@ public class GameController {
             upgradeLabBtn.setDisable(true);
             resolveNimonBtn.setDisable(true);
             rollDiceBtn.setDisable(diceAnimationRunning || diceFlowContext != null);
-            rollDiceBtn.setText("🎲 START");
+            rollDiceBtn.setText("START");
             endTurnBtn.setDisable(true);
             return;
         }
@@ -886,7 +886,7 @@ public class GameController {
         upgradeLabBtn.setDisable(true);
         resolveNimonBtn.setDisable(true);
         rollDiceBtn.setDisable(diceAnimationRunning || diceFlowContext != null || phase != TurnPhase.RESOURCE_GATHERING);
-        rollDiceBtn.setText("🎲 ROLL");
+        rollDiceBtn.setText("ROLL");
         endTurnBtn.setDisable(phase != TurnPhase.TRADE_BUILD);
 
         if (phase == TurnPhase.SETUP) {
@@ -1509,7 +1509,7 @@ public class GameController {
         PlayerConfig contender = startingOrderContenders.get(startingOrderRollIndex);
         diceFlowContext = DiceFlowContext.STARTING_ORDER;
         showDiceDialog(
-                "🎲  DETERMINE FIRST PLAYER",
+                "DETERMINE FIRST PLAYER",
                 "Choose how " + contender.getName() + " will roll for starting order.",
                 "ROLL FOR " + contender.getName().toUpperCase(),
                 GameSession.engine().isManualDiceEnabled()

@@ -202,7 +202,7 @@
                         </HBox>
                     </VBox>
 
-                    <Button fx:id="rollDiceBtn" styleClass="btn,btn-icon-dark" text="🎲 ROLL"
+                    <Button fx:id="rollDiceBtn" styleClass="btn,btn-icon-dark" text="ROLL"
                             onAction="#onRollDice" style="-fx-padding: 14 18; -fx-font-size: 13px;"/>
                     <Button fx:id="endTurnBtn" styleClass="btn,btn-gold" text="END TURN  ▶" onAction="#onEndTurn"
                             style="-fx-padding: 14 28; -fx-font-size: 14px;"/>

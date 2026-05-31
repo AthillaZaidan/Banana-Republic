@@ -26,7 +26,7 @@
                           -fx-background-radius: 20; -fx-border-color: -gold-deep;
                           -fx-border-width: 2; -fx-border-radius: 20;
                           -fx-effect: dropshadow(gaussian, rgba(245,183,56,0.35), 32, 0.4, 0, 0);">
-            <Label text="👤" style="-fx-font-size: 48px;"/>
+            <Pane fx:id="personIcon" prefWidth="48" prefHeight="48" pickOnBounds="false"/>
         </StackPane>
 
         <Label text="Turn complete."
@@ -49,7 +49,7 @@
             <VBox.margin><Insets top="22"/></VBox.margin>
         </Button>
 
-        <Label text="🔒  PASS THE DEVICE TO THE NEXT PLAYER"
+        <Label text="PASS THE DEVICE TO THE NEXT PLAYER"
                style="-fx-font-size: 12px; -fx-text-fill: -ink-on-dark-mute;">
             <VBox.margin><Insets top="22"/></VBox.margin>
         </Label>
