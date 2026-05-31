@@ -14,6 +14,7 @@ import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.Stepper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -38,11 +39,16 @@ public class TradeDialogController {
     @FXML private StackPane root;
     @FXML private Label tabDomestic;
     @FXML private Label tabMaritime;
+    @FXML private Label tradeStateLabel;
     @FXML private HBox giveRow;
     @FXML private HBox receiveRow;
     @FXML private HBox offerToRow;
     @FXML private VBox offerToBlock;
     @FXML private Label maritimeRateLabel;
+    @FXML private Button closeBtn;
+    @FXML private Button rejectBtn;
+    @FXML private Button acceptBtn;
+    @FXML private Button submitBtn;
 
     private final Map<ResourceType, Stepper> giveSteppers = new EnumMap<>(ResourceType.class);
     private final Map<ResourceType, Stepper> receiveSteppers = new EnumMap<>(ResourceType.class);
@@ -51,6 +57,8 @@ public class TradeDialogController {
 
     private boolean maritimeMode;
     private Player selectedTarget;
+    private Player currentComposer;
+    private TradeOffer pendingOffer;
 
     @FXML
     public void initialize() {
@@ -59,21 +67,13 @@ public class TradeDialogController {
             return;
         }
 
-        Player active = GameSession.engine().getState().getCurrentPlayer();
-        for (Resource resource : RESOURCES) {
-            int owned = active.getResourceAmount(resource.type());
-            Stepper giveStepper = new Stepper(0, 0, owned);
-            giveSteppers.put(resource.type(), giveStepper);
-            giveRow.getChildren().add(buildResourceTile(resource, owned, giveStepper));
-
-            Stepper receiveStepper = new Stepper(0, 0, 19);
-            receiveSteppers.put(resource.type(), receiveStepper);
-            receiveRow.getChildren().add(buildResourceTile(resource, 0, receiveStepper));
+        pendingOffer = GameSession.engine().getPendingTradeOffer();
+        if (pendingOffer != null) {
+            onSelectDomestic();
+            loadPendingOfferMode();
+        } else {
+            loadComposeMode();
         }
-
-        giveSteppers.values().forEach(stepper -> stepper.valueProperty().addListener((obs, oldV, newV) -> refreshTargetsAndRate()));
-        receiveSteppers.values().forEach(stepper -> stepper.valueProperty().addListener((obs, oldV, newV) -> refreshTargetsAndRate()));
-        refreshTargetsAndRate();
     }
 
     private VBox buildResourceTile(Resource resource, int owned, Stepper stepper) {
@@ -116,8 +116,8 @@ public class TradeDialogController {
         maritimeMode = false;
         tabDomestic.getStyleClass().setAll("tab", "is-active");
         tabMaritime.getStyleClass().setAll("tab");
-        offerToBlock.setVisible(true);
-        offerToBlock.setManaged(true);
+        offerToBlock.setVisible(pendingOffer == null);
+        offerToBlock.setManaged(pendingOffer == null);
         maritimeRateLabel.setVisible(false);
         maritimeRateLabel.setManaged(false);
         refreshTargetsAndRate();
@@ -125,6 +125,9 @@ public class TradeDialogController {
 
     @FXML
     private void onSelectMaritime() {
+        if (pendingOffer != null) {
+            return;
+        }
         maritimeMode = true;
         tabMaritime.getStyleClass().setAll("tab", "is-active");
         tabDomestic.getStyleClass().setAll("tab");
@@ -154,26 +157,76 @@ public class TradeDialogController {
                         requestedType
                 ));
             } else {
-                if (selectedTarget == null) {
-                    throw new IllegalArgumentException("Select a domestic trade target.");
-                }
-
                 ResourceInventory offered = toInventory(giveSteppers);
                 ResourceInventory requested = toInventory(receiveSteppers);
-                String activeId = engine.getState().getCurrentPlayer().getId();
-                TradeOffer pending = engine.getPendingTradeOffer();
-
-                if (pending != null && pending.getResponderPlayerId().equals(activeId)) {
-                    result = engine.counterDomesticTrade(activeId, new TradeOffer(
-                            activeId, selectedTarget.getId(), offered, requested
+                if (pendingOffer != null) {
+                    Player responder = engine.getState().getPlayerById(pendingOffer.getResponderPlayerId());
+                    Player proposer = engine.getState().getPlayerById(pendingOffer.getProposerPlayerId());
+                    result = engine.counterDomesticTrade(responder.getId(), new TradeOffer(
+                            responder.getId(),
+                            proposer.getId(),
+                            offered,
+                            requested
                     ));
                 } else {
+                    if (selectedTarget == null) {
+                        throw new IllegalArgumentException("Select a domestic trade target.");
+                    }
+                    String activeId = engine.getState().getCurrentPlayer().getId();
                     result = engine.submitDomesticTrade(new TradeOffer(
                             activeId, selectedTarget.getId(), offered, requested
                     ));
                 }
             }
 
+            GameController gameController = GameSession.getGameController();
+            if (gameController != null) {
+                gameController.log("[Trade] " + result.getMessage());
+                gameController.refresh();
+            }
+
+            if (result.getPendingOffer() != null) {
+                pendingOffer = result.getPendingOffer();
+                loadPendingOfferMode();
+            } else {
+                close();
+            }
+        } catch (RuntimeException ex) {
+            maritimeRateLabel.setVisible(true);
+            maritimeRateLabel.setManaged(true);
+            maritimeRateLabel.setText(ex.getMessage());
+        }
+    }
+
+    @FXML
+    private void onAccept() {
+        if (pendingOffer == null) {
+            return;
+        }
+
+        try {
+            TradeResult result = GameSession.engine().acceptDomesticTrade(pendingOffer.getResponderPlayerId());
+            GameController gameController = GameSession.getGameController();
+            if (gameController != null) {
+                gameController.log("[Trade] " + result.getMessage());
+                gameController.refresh();
+            }
+            close();
+        } catch (RuntimeException ex) {
+            maritimeRateLabel.setVisible(true);
+            maritimeRateLabel.setManaged(true);
+            maritimeRateLabel.setText(ex.getMessage());
+        }
+    }
+
+    @FXML
+    private void onReject() {
+        if (pendingOffer == null) {
+            return;
+        }
+
+        try {
+            TradeResult result = GameSession.engine().rejectDomesticTrade(pendingOffer.getResponderPlayerId());
             GameController gameController = GameSession.getGameController();
             if (gameController != null) {
                 gameController.log("[Trade] " + result.getMessage());
@@ -194,9 +247,14 @@ public class TradeDialogController {
 
     private void refreshTargetsAndRate() {
         GameEngine engine = GameSession.engine();
+        if (pendingOffer != null) {
+            selectedTarget = engine.getState().getPlayerById(pendingOffer.getProposerPlayerId());
+            return;
+        }
+
         ResourceType offeredType = singleType(giveSteppers);
         if (offeredType != null) {
-            int ratio = engine.getBestMaritimeRatio(engine.getState().getCurrentPlayer().getId(), offeredType);
+            int ratio = engine.getBestMaritimeRatio(currentComposer.getId(), offeredType);
             maritimeRateLabel.setText("Maritime trade rate: " + ratio + ":1");
         } else {
             maritimeRateLabel.setText("Maritime trade requires exactly one offered resource type.");
@@ -231,6 +289,87 @@ public class TradeDialogController {
         if (candidateTargets.isEmpty()) {
             selectedTarget = null;
         }
+    }
+
+    private void loadComposeMode() {
+        pendingOffer = null;
+        tabMaritime.setDisable(false);
+        setStateLabel(null);
+        offerToBlock.setVisible(true);
+        offerToBlock.setManaged(true);
+        closeBtn.setText("CANCEL");
+        rejectBtn.setVisible(false);
+        rejectBtn.setManaged(false);
+        acceptBtn.setVisible(false);
+        acceptBtn.setManaged(false);
+        submitBtn.setText("SUBMIT OFFER");
+        rebuildResourceTiles(GameSession.engine().getState().getCurrentPlayer(), new ResourceInventory(), new ResourceInventory());
+        onSelectDomestic();
+    }
+
+    private void loadPendingOfferMode() {
+        GameEngine engine = GameSession.engine();
+        Player proposer = engine.getState().getPlayerById(pendingOffer.getProposerPlayerId());
+        Player responder = engine.getState().getPlayerById(pendingOffer.getResponderPlayerId());
+
+        maritimeMode = false;
+        tabMaritime.getStyleClass().setAll("tab");
+        tabDomestic.getStyleClass().setAll("tab", "is-active");
+        tabMaritime.setDisable(true);
+        offerToBlock.setVisible(false);
+        offerToBlock.setManaged(false);
+        closeBtn.setText("CLOSE");
+        rejectBtn.setVisible(true);
+        rejectBtn.setManaged(true);
+        acceptBtn.setVisible(true);
+        acceptBtn.setManaged(true);
+        submitBtn.setText("SUBMIT COUNTER");
+        setStateLabel(responder.getName() + " is responding to " + proposer.getName()
+                + ": give " + inventoryText(pendingOffer.getOffered())
+                + " for " + inventoryText(pendingOffer.getRequested()) + ".");
+        rebuildResourceTiles(responder, pendingOffer.getRequested(), pendingOffer.getOffered());
+        refreshTargetsAndRate();
+    }
+
+    private void rebuildResourceTiles(Player composer, ResourceInventory initialGive, ResourceInventory initialReceive) {
+        currentComposer = composer;
+        giveRow.getChildren().clear();
+        receiveRow.getChildren().clear();
+        giveSteppers.clear();
+        receiveSteppers.clear();
+
+        for (Resource resource : RESOURCES) {
+            int owned = composer.getResourceAmount(resource.type());
+            Stepper giveStepper = new Stepper(Math.min(initialGive.getAmount(resource.type()), owned), 0, owned);
+            giveStepper.valueProperty().addListener((obs, oldV, newV) -> refreshTargetsAndRate());
+            giveSteppers.put(resource.type(), giveStepper);
+            giveRow.getChildren().add(buildResourceTile(resource, owned, giveStepper));
+
+            Stepper receiveStepper = new Stepper(initialReceive.getAmount(resource.type()), 0, 19);
+            receiveStepper.valueProperty().addListener((obs, oldV, newV) -> refreshTargetsAndRate());
+            receiveSteppers.put(resource.type(), receiveStepper);
+            receiveRow.getChildren().add(buildResourceTile(resource, 0, receiveStepper));
+        }
+    }
+
+    private void setStateLabel(String text) {
+        boolean show = text != null && !text.isBlank();
+        tradeStateLabel.setVisible(show);
+        tradeStateLabel.setManaged(show);
+        if (show) {
+            tradeStateLabel.setText(text);
+        }
+    }
+
+    private String inventoryText(ResourceInventory inventory) {
+        List<String> tokens = new ArrayList<>();
+        for (ResourceType type : ResourceType.values()) {
+            int amount = inventory.getAmount(type);
+            if (amount > 0) {
+                tokens.add(amount + " " + type.name());
+            }
+        }
+        return tokens.isEmpty() ? "nothing" : String.join(", ", tokens);
     }
 
     private void selectTarget(HBox selectedChip, Player selectedPlayer) {
@@ -286,4 +425,3 @@ public class TradeDialogController {
         Navigator.closeOverlay(root);
     }
 }
-

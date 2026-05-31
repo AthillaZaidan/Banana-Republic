@@ -104,21 +104,33 @@ public class DiscardDialogController {
 
     private boolean loadDiscardPlayer() {
         GameEngine engine = GameSession.engine();
-        Set<String> pendingPlayerIds = engine.getState().getTurnState().getPendingDiscardPlayerIds();
-        discardPlayer = engine.getState().getPlayers().stream()
-                .filter(player -> pendingPlayerIds.contains(player.getId()))
-                .findFirst()
-                .orElse(null);
-        if (discardPlayer == null) {
-            required = 0;
-            return false;
-        }
+        while (true) {
+            Set<String> pendingPlayerIds = engine.getState().getTurnState().getPendingDiscardPlayerIds();
+            discardPlayer = engine.getState().getPlayers().stream()
+                    .filter(player -> pendingPlayerIds.contains(player.getId()))
+                    .findFirst()
+                    .orElse(null);
+            if (discardPlayer == null) {
+                required = 0;
+                return false;
+            }
 
-        required = discardPlayer.getTotalResourceCards() / 2;
-        ruleText.setText("A 7 was rolled. " + discardPlayer.getName() + " holds "
-                + discardPlayer.getTotalResourceCards() + " cards and must discard floor("
-                + discardPlayer.getTotalResourceCards() + "/2) = " + required + ".");
-        return true;
+            if (!engine.isBotPlayer(discardPlayer.getId())) {
+                required = discardPlayer.getTotalResourceCards() / 2;
+                ruleText.setText("A 7 was rolled. " + discardPlayer.getName() + " holds "
+                        + discardPlayer.getTotalResourceCards() + " cards and must discard floor("
+                        + discardPlayer.getTotalResourceCards() + "/2) = " + required + ".");
+                return true;
+            }
+
+            int botRequired = discardPlayer.getTotalResourceCards() / 2;
+            engine.discardForSevenAutomatically(discardPlayer.getId());
+            GameController controller = GameSession.getGameController();
+            if (controller != null) {
+                controller.log("[Nimon] " + discardPlayer.getName() + " auto-discarded " + botRequired + " resources.");
+                controller.refresh();
+            }
+        }
     }
 
     private void rebuildColumns() {

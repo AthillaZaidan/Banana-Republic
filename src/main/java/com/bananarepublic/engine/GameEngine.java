@@ -13,6 +13,10 @@ import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.persistence.SaveLoadService;
 import com.bananarepublic.persistence.SnapshotSaveLoadService;
+import com.bananarepublic.plugin.Action;
+import com.bananarepublic.plugin.BotPluginLoader;
+import com.bananarepublic.plugin.MapPluginLoader;
+import com.bananarepublic.plugin.PlayerStrategy;
 import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.plugin.PluginLoader;
 import com.bananarepublic.service.board.StandardBoardFactory;
@@ -32,8 +36,12 @@ import com.bananarepublic.service.victory.VictoryService;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class GameEngine {
@@ -48,6 +56,8 @@ public class GameEngine {
     private final NimonService nimonService;
     private final SaveLoadService saveLoadService;
     private boolean manualDiceEnabled;
+    private GameConfig activeConfig;
+    private final Map<String, PlayerStrategy> botStrategies = new HashMap<>();
     private GameState state;
 
     public GameEngine() {
@@ -98,11 +108,7 @@ public class GameEngine {
     public void startNewGame(GameConfig config) {
         Objects.requireNonNull(config, "Game config cannot be null");
 
-        if (config.getBoardMode() != BoardMode.FIXED) {
-            throw new IllegalArgumentException("Unsupported board mode: " + config.getBoardMode());
-        }
-
-        Board board = new StandardBoardFactory().createBoard();
+        Board board = resolveBoard(config);
         Bank bank = new Bank();
         List<Player> players = createPlayers(config);
         DevelopmentDeck deck = DevelopmentDeck.createDefaultDeck();
@@ -110,7 +116,9 @@ public class GameEngine {
         turnManager.startSetup(players);
         state = new GameState(board, players, bank, turnManager.getTurnState());
         state.setDevelopmentDeck(deck);
+        configureBotStrategies(config, players);
         manualDiceEnabled = config.isManualDiceEnabled();
+        activeConfig = config;
     }
 
     public DiceRoll rollDice(DiceMode mode, DiceRoll manualRoll) {
@@ -182,7 +190,7 @@ public class GameEngine {
     public void buyDevelopmentCard(String playerId) {
         requireStarted();
         requireActivePlayer(playerId);
-        requirePlayablePhase();
+        requireTradeBuildPhase();
 
         DevelopmentDeck deck = state.getDevelopmentDeck();
         if (deck == null || deck.isEmpty()) {
@@ -520,6 +528,145 @@ public class GameEngine {
         return manualDiceEnabled;
     }
 
+    public GameConfig getActiveConfig() {
+        return activeConfig;
+    }
+
+    public boolean isCurrentPlayerBot() {
+        requireStarted();
+        return isBotPlayer(state.getCurrentPlayer().getId());
+    }
+
+    public boolean isBotPlayer(String playerId) {
+        requireStarted();
+        return botStrategies.containsKey(playerId);
+    }
+
+    public String resolveBotSetupStep() {
+        requireStarted();
+        Player player = state.getCurrentPlayer();
+        if (!isBotPlayer(player.getId())) {
+            throw new IllegalStateException("Current player is not bot-controlled");
+        }
+        if (state.getTurnState().getPhase() != TurnPhase.SETUP) {
+            throw new IllegalStateException("Bot setup action is only valid during setup");
+        }
+
+        if (state.getTurnState().isWaitingForSetupPipe()) {
+            String pathId = getValidSetupRoadIds(player.getId()).stream().findFirst()
+                    .orElseThrow(() -> new IllegalStateException("No valid setup pipe for bot"));
+            placeSetupRoad(player.getId(), pathId);
+            return player.getName() + " placed a setup pipe on " + pathId + ".";
+        }
+
+        String intersectionId = getValidSetupPostIds(player.getId()).stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("No valid setup post for bot"));
+        placeSetupWatchPost(player.getId(), intersectionId);
+        return player.getName() + " placed a setup monitoring post at " + intersectionId + ".";
+    }
+
+    public void discardForSevenAutomatically(String playerId) {
+        requireStarted();
+        Player player = state.getPlayerById(playerId);
+        int required = player.getTotalResourceCards() / 2;
+        ResourceInventory discarded = new ResourceInventory();
+        if (required == 0) {
+            discardForSeven(playerId, discarded);
+            return;
+        }
+
+        Map<ResourceType, Integer> amounts = new EnumMap<>(ResourceType.class);
+        for (ResourceType type : ResourceType.values()) {
+            amounts.put(type, player.getResourceAmount(type));
+        }
+
+        int remaining = required;
+        while (remaining > 0) {
+            ResourceType nextType = amounts.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 0)
+                    .max(Comparator.comparingInt(Map.Entry::getValue))
+                    .map(Map.Entry::getKey)
+                    .orElseThrow(() -> new IllegalStateException("Bot discard could not find enough resources"));
+            discarded.add(nextType, 1);
+            amounts.put(nextType, amounts.get(nextType) - 1);
+            remaining--;
+        }
+
+        discardForSeven(playerId, discarded);
+    }
+
+    public String resolveBotNimonFlow() {
+        requireStarted();
+        Player player = state.getCurrentPlayer();
+        if (!isBotPlayer(player.getId())) {
+            throw new IllegalStateException("Current player is not bot-controlled");
+        }
+        if (state.getTurnState().getPhase() != TurnPhase.MOVE_NIMON_UNGU) {
+            throw new IllegalStateException("Bot Nimon action is only valid during Nimon flow");
+        }
+
+        String tileId = getValidNimonTargetTileIds().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("No valid tile for bot Nimon move"));
+        moveNimonAfterSeven(tileId);
+
+        List<Player> targets = getValidStealTargetsAfterSeven();
+        if (targets.isEmpty()) {
+            finishNimonAfterSevenWithoutSteal();
+            return player.getName() + " moved Nimon to " + tileId + " and skipped steal.";
+        }
+
+        String victimId = targets.getFirst().getId();
+        stealAfterSeven(victimId);
+        return player.getName() + " moved Nimon to " + tileId + " and stole from " + state.getPlayerById(victimId).getName() + ".";
+    }
+
+    public String executeBotTradeBuildAction() {
+        requireStarted();
+        Player player = state.getCurrentPlayer();
+        if (!isBotPlayer(player.getId())) {
+            throw new IllegalStateException("Current player is not bot-controlled");
+        }
+        if (state.getTurnState().getPhase() != TurnPhase.TRADE_BUILD) {
+            throw new IllegalStateException("Bot action is only valid during trade/build");
+        }
+
+        PlayerStrategy strategy = botStrategies.get(player.getId());
+        Action action = strategy != null ? strategy.takeTurn(state) : null;
+        if (action == null) {
+            endTurn();
+            return player.getName() + " ended the turn.";
+        }
+
+        try {
+            action.execute(this, player.getId());
+            return player.getName() + " chose to " + action.describe() + ".";
+        } catch (RuntimeException ex) {
+            endTurn();
+            return player.getName() + " attempted an invalid bot action and ended the turn instead: " + ex.getMessage();
+        }
+    }
+
+    public boolean canBuyDevelopmentCard(String playerId) {
+        requireStarted();
+        if (!state.getCurrentPlayer().getId().equals(playerId)) {
+            return false;
+        }
+        if (state.getTurnState().getPhase() != TurnPhase.TRADE_BUILD) {
+            return false;
+        }
+
+        DevelopmentDeck deck = state.getDevelopmentDeck();
+        if (deck == null || deck.isEmpty()) {
+            return false;
+        }
+
+        ResourceInventory cost = new ResourceInventory();
+        cost.add(ResourceType.ORE, 1);
+        cost.add(ResourceType.BANANA, 1);
+        cost.add(ResourceType.WHEAT, 1);
+        return state.getCurrentPlayer().hasResources(cost);
+    }
+
     public void produceResources(int diceTotal) {
         requireStarted();
         resourceProductionService.produce(state, diceTotal);
@@ -554,7 +701,9 @@ public class GameEngine {
         timerService.stop();
         state = saveLoadService.load(file.toPath());
         turnManager.restore(state.getPlayers(), state.getTurnState());
+        botStrategies.clear();
         manualDiceEnabled = true;
+        activeConfig = null;
     }
 
     private DevelopmentCard findAndValidateCard(String playerId, String cardId) {
@@ -612,6 +761,42 @@ public class GameEngine {
         }
 
         return players;
+    }
+
+    private void configureBotStrategies(GameConfig config, List<Player> players) {
+        botStrategies.clear();
+        String jarPath = config.getBotPluginJarPath();
+        if (jarPath == null) {
+            return;
+        }
+
+        File jarFile = new File(jarPath);
+        for (int i = 0; i < config.getPlayerConfigs().size(); i++) {
+            PlayerConfig playerConfig = config.getPlayerConfigs().get(i);
+            if (!playerConfig.isBotControlled()) {
+                continue;
+            }
+
+            PlayerStrategy strategy = new BotPluginLoader().loadFromJar(jarFile);
+            botStrategies.put(players.get(i).getId(), strategy);
+        }
+    }
+
+    private Board resolveBoard(GameConfig config) {
+        if (config.getBoardOverride() != null) {
+            return config.getBoardOverride();
+        }
+
+        return switch (config.getBoardMode()) {
+            case FIXED -> new StandardBoardFactory().createBoard();
+            case PLUGIN -> {
+                String jarPath = config.getMapPluginJarPath();
+                if (jarPath == null) {
+                    throw new IllegalArgumentException("Plugin board mode requires a map plugin JAR");
+                }
+                yield new MapPluginLoader().loadFromJar(new File(jarPath)).generateBoard();
+            }
+        };
     }
 
     private void updateWinner() {

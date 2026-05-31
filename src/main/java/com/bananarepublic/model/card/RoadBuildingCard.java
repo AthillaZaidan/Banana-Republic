@@ -57,24 +57,42 @@ public class RoadBuildingCard extends DevelopmentCard {
             player.registerPipe(pipe);
             placed++;
         }
+
+        if (placed == 0) {
+            throw new InvalidMoveException("Selected Road Building paths are not valid");
+        }
+        assert placed <= 2;
     }
 
     private boolean isConnectedToPlayerNetwork(Path path, Player player) {
-        return endpointBelongsToPlayer(path.getEndpointA(), player)
-                || endpointBelongsToPlayer(path.getEndpointB(), player)
-                || path.getEndpointA().getConnectedPaths().stream()
-                        .filter(connectedPath -> connectedPath != path)
-                        .flatMap(connectedPath -> connectedPath.getPipe().stream())
-                        .anyMatch(pipe -> pipe.isOwnedBy(player))
-                || path.getEndpointB().getConnectedPaths().stream()
-                        .filter(connectedPath -> connectedPath != path)
-                        .flatMap(connectedPath -> connectedPath.getPipe().stream())
-                        .anyMatch(pipe -> pipe.isOwnedBy(player));
+        return canExtendFrom(path.getEndpointA(), path, player)
+                || canExtendFrom(path.getEndpointB(), path, player);
+    }
+
+    private boolean canExtendFrom(com.bananarepublic.model.board.Intersection intersection, Path targetPath, Player player) {
+        if (endpointBelongsToPlayer(intersection, player)) {
+            return true;
+        }
+
+        if (isBlockedByOpponentBuilding(intersection, player)) {
+            return false;
+        }
+
+        return intersection.getConnectedPaths().stream()
+                .filter(connectedPath -> connectedPath != targetPath)
+                .flatMap(connectedPath -> connectedPath.getPipe().stream())
+                .anyMatch(pipe -> pipe.isOwnedBy(player));
     }
 
     private boolean endpointBelongsToPlayer(com.bananarepublic.model.board.Intersection intersection, Player player) {
         return intersection.getBuilding()
                 .map(building -> building.isOwnedBy(player))
+                .orElse(false);
+    }
+
+    private boolean isBlockedByOpponentBuilding(com.bananarepublic.model.board.Intersection intersection, Player player) {
+        return intersection.getBuilding()
+                .map(building -> !building.isOwnedBy(player))
                 .orElse(false);
     }
 }

@@ -22,6 +22,7 @@ class FxmlLoadTest extends ApplicationTest {
             "/fxml/game_result.fxml",
             "/fxml/trade_dialog.fxml",
             "/fxml/cards_dialog.fxml",
+            "/fxml/build_costs_dialog.fxml",
             "/fxml/settings_dialog.fxml",
             "/fxml/victory_dialog.fxml",
             "/fxml/steal_dialog.fxml",

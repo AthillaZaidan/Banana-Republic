@@ -45,6 +45,7 @@
                     <Button styleClass="btn,btn-icon,btn-icon-teal" text="📊" onAction="#onScoreboard"/>
                     <Button styleClass="btn,btn-icon"             text="🔁" onAction="#onTrade"/>
                     <Button styleClass="btn,btn-icon,btn-icon-teal" text="🃏" onAction="#onCards"/>
+                    <Button styleClass="btn,btn-icon,btn-icon-teal" text="🧾" onAction="#onBuildCosts"/>
                     <Button styleClass="btn,btn-icon"             text="⚙"  onAction="#onSettings"/>
                     <VBox spacing="8">
                         <Button fx:id="buildPostBtn" styleClass="btn,btn-outline" text="BUILD POST"

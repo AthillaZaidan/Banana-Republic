@@ -24,6 +24,7 @@ import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.WoodenFrame;
+import javafx.application.Platform;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
@@ -98,7 +99,9 @@ public class GameController {
     private TurnPhase trackedPhase;
     private Timeline diceAnimation;
     private boolean diceAnimationRunning;
+    private boolean botAutomationQueued;
     private DiceFlowContext diceFlowContext;
+    private GameConfig startingOrderBaseConfig;
     private List<PlayerConfig> startingOrderOriginalOrder = List.of();
     private List<PlayerConfig> startingOrderContenders = List.of();
     private final Map<PlayerConfig, DiceRoll> startingOrderRoundRolls = new LinkedHashMap<>();
@@ -147,6 +150,7 @@ public class GameController {
         fitBoard();
         syncTimerAndPhaseUi();
         startUiTimer();
+        queueBotAutomationIfNeeded();
     }
 
     public void refresh() {
@@ -159,6 +163,7 @@ public class GameController {
         syncTimerAndPhaseUi();
         trackedPlayerId = state.getCurrentPlayer().getId();
         trackedPhase = state.getTurnState().getPhase();
+        queueBotAutomationIfNeeded();
     }
 
     public void continueSpecialTurnFlow() {
@@ -214,6 +219,11 @@ public class GameController {
     @FXML
     private void onCards() {
         Navigator.showOverlay("/fxml/cards_dialog.fxml");
+    }
+
+    @FXML
+    private void onBuildCosts() {
+        Navigator.showOverlay("/fxml/build_costs_dialog.fxml");
     }
 
     @FXML
@@ -817,6 +827,114 @@ public class GameController {
         }
     }
 
+    private void queueBotAutomationIfNeeded() {
+        if (botAutomationQueued
+                || !GameSession.hasEngine()
+                || GameSession.isStartingOrderPending()
+                || diceAnimationRunning
+                || diceFlowContext != null) {
+            return;
+        }
+
+        GameEngine engine = GameSession.engine();
+        boolean pendingBotDiscard = engine.getState().getTurnState().getPhase() == TurnPhase.DISCARD
+                && engine.getState().getTurnState().getPendingDiscardPlayerIds().stream()
+                .anyMatch(engine::isBotPlayer);
+        if (!engine.isCurrentPlayerBot() && !pendingBotDiscard) {
+            return;
+        }
+
+        botAutomationQueued = true;
+        Platform.runLater(() -> {
+            botAutomationQueued = false;
+            runBotAutomation();
+        });
+    }
+
+    private void runBotAutomation() {
+        if (!GameSession.hasEngine() || GameSession.isStartingOrderPending() || diceAnimationRunning || diceFlowContext != null) {
+            return;
+        }
+
+        GameEngine engine = GameSession.engine();
+        int safety = 0;
+        while (GameSession.hasEngine() && safety++ < 24) {
+            GameState state = engine.getState();
+            TurnPhase phase = state.getTurnState().getPhase();
+
+            if (phase == TurnPhase.DISCARD) {
+                boolean discarded = autoResolvePendingBotDiscards(engine);
+                if (!engine.isCurrentPlayerBot()) {
+                    if (discarded) {
+                        refresh();
+                    }
+                    return;
+                }
+                if (!engine.getState().getTurnState().getPendingDiscardPlayerIds().isEmpty()) {
+                    Navigator.showOverlay("/fxml/discard_dialog.fxml");
+                    refresh();
+                    return;
+                }
+                continue;
+            }
+
+            if (!engine.isCurrentPlayerBot()) {
+                break;
+            }
+
+            try {
+                switch (phase) {
+                    case SETUP -> log("[Bot] " + engine.resolveBotSetupStep());
+                    case RESOURCE_GATHERING -> {
+                        Player bot = state.getCurrentPlayer();
+                        DiceRoll roll = engine.rollDice(DiceMode.RANDOM, null);
+                        updateDiceDisplay(roll, bot.getName() + " rolled");
+                        log("[Bot] " + bot.getName() + " rolled "
+                                + roll.getFirst() + " + " + roll.getSecond() + " = " + roll.total() + ".");
+                    }
+                    case MOVE_NIMON_UNGU -> log("[Bot] " + engine.resolveBotNimonFlow());
+                    case TRADE_BUILD -> log("[Bot] " + engine.executeBotTradeBuildAction());
+                    case GAME_OVER -> {
+                        checkVictory();
+                        refresh();
+                        return;
+                    }
+                    default -> {
+                        refresh();
+                        return;
+                    }
+                }
+            } catch (RuntimeException ex) {
+                log("[Bot] " + state.getCurrentPlayer().getName() + " stopped because: " + ex.getMessage());
+                refresh();
+                return;
+            }
+
+            if (engine.getState().isGameOver()) {
+                refresh();
+                checkVictory();
+                return;
+            }
+        }
+        refresh();
+    }
+
+    private boolean autoResolvePendingBotDiscards(GameEngine engine) {
+        boolean handled = false;
+        List<String> pendingIds = new ArrayList<>(engine.getState().getTurnState().getPendingDiscardPlayerIds());
+        for (String playerId : pendingIds) {
+            if (!engine.isBotPlayer(playerId)) {
+                continue;
+            }
+            Player player = engine.getState().getPlayerById(playerId);
+            int required = player.getTotalResourceCards() / 2;
+            engine.discardForSevenAutomatically(playerId);
+            log("[Bot] " + player.getName() + " auto-discarded " + required + " resources.");
+            handled = true;
+        }
+        return handled;
+    }
+
     private void promptNimonFlow() {
         GameEngine engine = GameSession.engine();
         GameState state = engine.getState();
@@ -846,9 +964,17 @@ public class GameController {
 
     private void beginStartingOrderFlow() {
         GameEngine engine = GameSession.engine();
-        startingOrderOriginalOrder = engine.getState().getPlayers().stream()
-                .map(player -> new PlayerConfig(player.getName(), player.getColor()))
-                .toList();
+        startingOrderBaseConfig = engine.getActiveConfig();
+        if (startingOrderBaseConfig == null) {
+            startingOrderBaseConfig = new GameConfig(
+                    engine.getState().getPlayers().stream()
+                            .map(player -> new PlayerConfig(player.getName(), player.getColor()))
+                            .toList(),
+                    BoardMode.FIXED,
+                    engine.isManualDiceEnabled()
+            );
+        }
+        startingOrderOriginalOrder = startingOrderBaseConfig.getPlayerConfigs();
         startingOrderContenders = new ArrayList<>(startingOrderOriginalOrder);
         startingOrderRoundRolls.clear();
         startingOrderRollIndex = 0;
@@ -896,10 +1022,8 @@ public class GameController {
         if (highest.size() == 1) {
             PlayerConfig starter = highest.getFirst();
             GameEngine rotatedEngine = new GameEngine();
-            rotatedEngine.startNewGame(new GameConfig(
-                    rotateFromStarter(startingOrderOriginalOrder, starter),
-                    BoardMode.FIXED,
-                    GameSession.engine().isManualDiceEnabled()
+            rotatedEngine.startNewGame(startingOrderBaseConfig.withPlayerConfigs(
+                    rotateFromStarter(startingOrderOriginalOrder, starter)
             ));
             GameSession.setEngine(rotatedEngine);
             GameSession.setStartingOrderPending(false);
@@ -990,6 +1114,7 @@ public class GameController {
     }
 
     private void resetStartingOrderFlow() {
+        startingOrderBaseConfig = null;
         startingOrderOriginalOrder = List.of();
         startingOrderContenders = List.of();
         startingOrderRoundRolls.clear();

@@ -16,6 +16,7 @@ import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
@@ -23,14 +24,17 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class CardsDialogController {
     @FXML private StackPane root;
     @FXML private HBox cardRow;
     @FXML private Label emptyLabel;
+    @FXML private Button buyBtn;
 
     private VBox selectedCardBox;
     private DevelopmentCard selectedCard;
@@ -59,6 +63,7 @@ public class CardsDialogController {
         if (hand.isEmpty()) {
             emptyLabel.setText("Belum ada kartu di tangan. Beli kartu temuan!");
             emptyLabel.setVisible(true);
+            refreshBuyButton();
             return;
         }
 
@@ -74,6 +79,7 @@ public class CardsDialogController {
             }
             first = false;
         }
+        refreshBuyButton();
     }
 
     private VBox buildCard(DevelopmentCard card, boolean isSelected) {
@@ -194,7 +200,7 @@ public class CardsDialogController {
                     logEvent(active.getName() + " memainkan Monopoli Nimon (target: " + target + ").");
                 }
                 case RoadBuildingCard r -> {
-                    List<String> pathIds = pickAutoRoadPaths(engine.getState(), active);
+                    List<String> pathIds = promptRoadBuildingPaths(engine.getState(), active);
                     if (pathIds.isEmpty()) {
                         showAlert("Gagal", "Tidak ada jalur yang bisa dibangun.");
                         return;
@@ -304,32 +310,121 @@ public class CardsDialogController {
         }
     }
 
-    private List<String> pickAutoRoadPaths(GameState state, Player player) {
-        List<String> result = new ArrayList<>();
-        for (var path : state.getBoard().getPaths()) {
-            if (result.size() >= 2) break;
-            if (path.hasPipe()) continue;
-            boolean connected = isConnectedToPlayerNetwork(path, player);
-            if (connected) {
-                result.add(path.getId());
-            }
+    private void refreshBuyButton() {
+        if (buyBtn == null) {
+            return;
         }
-        return result;
+        if (!GameSession.hasEngine()) {
+            buyBtn.setDisable(true);
+            return;
+        }
+
+        GameEngine engine = GameSession.engine();
+        Player active = engine.getState().getCurrentPlayer();
+        buyBtn.setDisable(!engine.canBuyDevelopmentCard(active.getId()));
     }
 
-    private boolean isConnectedToPlayerNetwork(com.bananarepublic.model.board.Path path, Player player) {
-        var epA = path.getEndpointA();
-        var epB = path.getEndpointB();
-        return epA.getBuilding().map(b -> b.isOwnedBy(player)).orElse(false)
-                || epB.getBuilding().map(b -> b.isOwnedBy(player)).orElse(false)
-                || epA.getConnectedPaths().stream()
-                        .filter(cp -> cp != path)
-                        .flatMap(cp -> cp.getPipe().stream())
-                        .anyMatch(pipe -> pipe.isOwnedBy(player))
-                || epB.getConnectedPaths().stream()
-                        .filter(cp -> cp != path)
-                        .flatMap(cp -> cp.getPipe().stream())
-                        .anyMatch(pipe -> pipe.isOwnedBy(player));
+    private List<String> promptRoadBuildingPaths(GameState state, Player player) {
+        List<String> firstOptions = validRoadBuildingPathIds(state, player, List.of());
+        if (firstOptions.isEmpty()) {
+            return List.of();
+        }
+
+        String firstPathId = promptPathChoice(
+                "Konstruksi Cepat",
+                "Pilih pipa gratis pertama.",
+                firstOptions
+        );
+        if (firstPathId == null) {
+            return List.of();
+        }
+
+        List<String> selected = new ArrayList<>();
+        selected.add(firstPathId);
+
+        List<String> secondOptions = validRoadBuildingPathIds(state, player, selected);
+        if (secondOptions.isEmpty()) {
+            return selected;
+        }
+
+        String secondPathId = promptPathChoiceWithSkip(
+                "Konstruksi Cepat",
+                "Pilih pipa gratis kedua, atau selesai setelah satu pipa.",
+                secondOptions
+        );
+        if (secondPathId != null) {
+            selected.add(secondPathId);
+        }
+        return selected;
+    }
+
+    private String promptPathChoice(String title, String header, List<String> pathIds) {
+        Map<String, String> valuesByLabel = pathChoiceLabels(GameSession.engine().getState(), pathIds);
+        List<String> labels = new ArrayList<>(valuesByLabel.keySet());
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.getFirst(), labels);
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
+        dialog.setContentText("Jalur:");
+        return dialog.showAndWait().map(valuesByLabel::get).orElse(null);
+    }
+
+    private String promptPathChoiceWithSkip(String title, String header, List<String> pathIds) {
+        Map<String, String> valuesByLabel = pathChoiceLabels(GameSession.engine().getState(), pathIds);
+        LinkedHashMap<String, String> options = new LinkedHashMap<>();
+        options.put("Selesai setelah 1 pipa", null);
+        options.putAll(valuesByLabel);
+        List<String> labels = new ArrayList<>(options.keySet());
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.getFirst(), labels);
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
+        dialog.setContentText("Jalur:");
+        return dialog.showAndWait().map(options::get).orElse(null);
+    }
+
+    private Map<String, String> pathChoiceLabels(GameState state, List<String> pathIds) {
+        LinkedHashMap<String, String> valuesByLabel = new LinkedHashMap<>();
+        for (String pathId : pathIds) {
+            var path = state.getBoard().getPath(pathId);
+            String label = pathId + "  (" + path.getEndpointA().getId() + " - " + path.getEndpointB().getId() + ")";
+            valuesByLabel.put(label, pathId);
+        }
+        return valuesByLabel;
+    }
+
+    private List<String> validRoadBuildingPathIds(GameState state, Player player, List<String> plannedPathIds) {
+        return state.getBoard().getPaths().stream()
+                .filter(path -> !plannedPathIds.contains(path.getId()))
+                .filter(path -> canBuildRoadBuildingPipe(path, player, Set.copyOf(plannedPathIds)))
+                .map(com.bananarepublic.model.board.Path::getId)
+                .toList();
+    }
+
+    private boolean canBuildRoadBuildingPipe(com.bananarepublic.model.board.Path path, Player player, Set<String> plannedPathIds) {
+        if (path.hasPipe()) {
+            return false;
+        }
+        return canExtendFrom(path.getEndpointA(), path, player, plannedPathIds)
+                || canExtendFrom(path.getEndpointB(), path, player, plannedPathIds);
+    }
+
+    private boolean canExtendFrom(
+            com.bananarepublic.model.board.Intersection intersection,
+            com.bananarepublic.model.board.Path targetPath,
+            Player player,
+            Set<String> plannedPathIds
+    ) {
+        if (intersection.getBuilding().map(building -> building.isOwnedBy(player)).orElse(false)) {
+            return true;
+        }
+
+        if (intersection.getBuilding().map(building -> !building.isOwnedBy(player)).orElse(false)) {
+            return false;
+        }
+
+        return intersection.getConnectedPaths().stream()
+                .filter(path -> path != targetPath)
+                .anyMatch(path -> plannedPathIds.contains(path.getId())
+                        || path.getPipe().map(pipe -> pipe.isOwnedBy(player)).orElse(false));
     }
 
     private void showAlert(String title, String message) {
