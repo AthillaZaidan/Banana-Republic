@@ -1,14 +1,23 @@
 package com.bananarepublic.ui;
 
+import com.bananarepublic.engine.GameState;
+import com.bananarepublic.model.board.Board;
+import com.bananarepublic.model.board.HexTile;
+import com.bananarepublic.model.board.Intersection;
+import com.bananarepublic.model.board.Path;
+import com.bananarepublic.model.board.TerrainType;
+import com.bananarepublic.model.building.BuildingType;
+import com.bananarepublic.model.harbor.Harbor;
+import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.service.board.StandardBoardFactory;
+import javafx.geometry.Point2D;
 import javafx.scene.Group;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
@@ -17,719 +26,483 @@ import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextAlignment;
-import javafx.scene.transform.Rotate;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class HexBoard extends Pane {
     private static final double HEX_SIZE = 72;
+    private static final double HEX_WIDTH = Math.sqrt(3.0) * HEX_SIZE;
+    private static final double HEX_HEIGHT = HEX_SIZE * 2.0;
+    private static final double PIPE_INSET = 16;
+    private static final double HARBOR_DOCK_DISTANCE = 26;
+    private static final double HARBOR_SIGN_DISTANCE = 88;
+    private static final int[] ROW_COLUMNS = {3, 4, 5, 4, 3};
+    private static final DropShadow TOKEN_SHADOW = new DropShadow(3, Color.color(0, 0, 0, 0.25));
+    private static final Map<TerrainType, TerrainVisual> TERRAIN_VISUALS = createTerrainVisuals();
 
-    // --- SAND TUNING ---
-    // Width of the sand image in pixels. Height is derived automatically (preserveRatio).
-    // Increase to make the sand bigger, decrease to shrink it.
-    private static final double SAND_SIZE = 690;
-    private static final double SQRT3 = Math.sqrt(3);
-    private static final double HEX_W = SQRT3 * HEX_SIZE;
-    private static final double HEX_H = 2 * HEX_SIZE;
-
-    private static final int[] ROW_COLS = {3, 4, 5, 4, 3};
-
-    private static final Terrain[] TILES = {
-        Terrain.HUTAN, Terrain.BUKIT, Terrain.TAMBANG,
-        Terrain.HUTAN, Terrain.BUKIT, Terrain.LADANG, Terrain.KEBUN,
-        Terrain.HUTAN, Terrain.LADANG, Terrain.GURUN, Terrain.TAMBANG, Terrain.KEBUN,
-        Terrain.TAMBANG, Terrain.BUKIT, Terrain.TAMBANG, Terrain.KEBUN,
-        Terrain.HUTAN, Terrain.KEBUN, Terrain.BUKIT,
-    };
-
-    private static final Integer[] NUMBERS = {
-        12, 4, 10,
-        10, 9, 11, 9,
-        8, 6, null, 8, 5,
-        11, 3, 4, 5,
-        6, 9, 11,
-    };
-
-    private static final Harbor[] HARBORS = {
-        new Harbor("Umum",    "3:1", Color.web("#bcd6df"), 0,    -360),
-        new Harbor("Pisang",  "2:1", Color.web("#ffd23d"), 260,  -240),
-        new Harbor("Kayu",    "2:1", Color.web("#3a9648"), 340,  0),
-        new Harbor("Bijih",   "2:1", Color.web("#9a9a92"), 260,  240),
-        new Harbor("Gandum",  "2:1", Color.web("#ffd864"), 0,    360),
-        new Harbor("Bata",    "2:1", Color.web("#d56a3a"), -260, 240),
-        new Harbor("Umum",    "3:1", Color.web("#bcd6df"), -340, 0),
-        new Harbor("Pisang",  "2:1", Color.web("#ffd23d"), -260, -240),
-        new Harbor("Umum",    "3:1", Color.web("#bcd6df"), 150,  -310),
-    };
-
-    // --- BRIDGE TUNING ---
-    // Height of each bridge image in pixels (thickness of the plank).
-    private static final double BRIDGE_H = 14;
-    // Gap (px) between the hex corner and the start of the bridge.
-    private static final double BRIDGE_GAP = 4;
-    // Gap (px) between the end of the bridge and the harbor sign center.
-    private static final double BRIDGE_END_GAP = 18;
+    private final Map<String, Point2D> tileCenters = new HashMap<>();
+    private final Map<String, Point2D> intersectionPoints = new HashMap<>();
+    private final double boardWidth;
+    private final double boardHeight;
 
     public HexBoard(double width, double height) {
+        this(null, width, height);
+    }
+
+    public HexBoard(GameState state, double width, double height) {
+        this.boardWidth = width;
+        this.boardHeight = height;
         setPrefSize(width, height);
         setMinSize(width, height);
         setMaxSize(width, height);
-        getTransforms().add(new Rotate(14, width / 2, height / 2, 0, Rotate.X_AXIS));
-        buildOceanDecor(width, height);
-        buildIsland(width, height);
-        buildHarbors(width, height);
-        buildHexes(width, height);
-        buildBuildings(width, height);
+        render(state);
     }
 
-    private void buildOceanDecor(double w, double h) {
-        double cx = w / 2;
-        double cy = h / 2;
-        drawMiniIsland(cx - w * 0.42, cy - h * 0.40);
-        drawMiniIsland(cx + w * 0.40, cy + h * 0.38);
-        drawSailboat(cx - w * 0.38, cy + h * 0.12);
-        drawSailboat(cx + w * 0.42, cy - h * 0.18);
-        drawSubmarine(cx + w * 0.38, cy + h * 0.22);
-        drawBananaBoat(cx - w * 0.38, cy + h * 0.32);
+    public void render(GameState state) {
+        getChildren().clear();
+        Board board = state != null ? state.getBoard() : new StandardBoardFactory().createBoard();
+        String robberTileId = state != null ? state.getNimonTileId() : findDefaultRobberTile(board);
+
+        layoutGeometry(board);
+        drawBackdrop();
+        drawHarbors(board);
+        drawTiles(board, robberTileId);
+        drawPipes(board);
+        drawBuildings(board);
     }
 
-    private void drawMiniIsland(double cx, double cy) {
-        Ellipse sand = new Ellipse(cx, cy + 6, 32, 6);
-        sand.setFill(Color.web("#f1d588"));
-        sand.setStroke(Color.web("#a67d36"));
-        sand.setStrokeWidth(1.4);
-        getChildren().add(sand);
+    private void layoutGeometry(Board board) {
+        tileCenters.clear();
+        intersectionPoints.clear();
 
-        Line trunk = new Line(cx, cy + 4, cx, cy - 14);
-        trunk.setStroke(Color.web("#5a3a1c"));
-        trunk.setStrokeWidth(2);
-        trunk.setStrokeLineCap(StrokeLineCap.ROUND);
-        getChildren().add(trunk);
+        double cx = boardWidth / 2.0;
+        double cy = boardHeight / 2.0;
+        List<HexTile> sortedTiles = board.getTiles().stream()
+                .sorted(Comparator.comparingInt(tile -> numericSuffix(tile.getId())))
+                .toList();
 
-        for (double a : new double[]{-1.1, -0.4, 0.3, 1.0}) {
-            Line frond = new Line(cx, cy - 14,
-                cx + Math.cos(a) * 14, cy - 14 - Math.abs(Math.sin(a)) * 10);
-            frond.setStroke(Color.web("#1f7a3c"));
-            frond.setStrokeWidth(2.5);
-            frond.setStrokeLineCap(StrokeLineCap.ROUND);
-            getChildren().add(frond);
-        }
-    }
-
-    private void drawSailboat(double cx, double cy) {
-        Polygon hull = new Polygon(
-            cx - 14, cy + 2,
-            cx + 14, cy + 2,
-            cx + 10, cy + 8,
-            cx - 10, cy + 8
-        );
-        hull.setFill(Color.web("#7c4a26"));
-        hull.setStroke(Color.web("#3a1d0a"));
-        hull.setStrokeWidth(1.2);
-        getChildren().add(hull);
-
-        Line mast = new Line(cx, cy + 2, cx, cy - 16);
-        mast.setStroke(Color.web("#3a1d0a"));
-        mast.setStrokeWidth(1.4);
-        getChildren().add(mast);
-
-        Polygon sail = new Polygon(
-            cx, cy - 14,
-            cx + 12, cy - 2,
-            cx, cy - 2
-        );
-        sail.setFill(Color.web("#fff5d6"));
-        sail.setStroke(Color.web("#3a1d0a"));
-        sail.setStrokeWidth(1);
-        getChildren().add(sail);
-
-        Polygon flag = new Polygon(
-            cx, cy - 18,
-            cx + 6, cy - 16,
-            cx, cy - 14
-        );
-        flag.setFill(Color.web("#e64b3f"));
-        getChildren().add(flag);
-    }
-
-    private void drawSubmarine(double cx, double cy) {
-        Ellipse body = new Ellipse(cx, cy, 22, 8);
-        body.setFill(Color.web("#ffd23d"));
-        body.setStroke(Color.web("#8a5a0a"));
-        body.setStrokeWidth(1.2);
-        getChildren().add(body);
-
-        javafx.scene.shape.Rectangle tower = new javafx.scene.shape.Rectangle(cx - 4, cy - 10, 8, 6);
-        tower.setArcWidth(2); tower.setArcHeight(2);
-        tower.setFill(Color.web("#ffd23d"));
-        tower.setStroke(Color.web("#8a5a0a"));
-        tower.setStrokeWidth(1);
-        getChildren().add(tower);
-
-        Circle window = new Circle(cx - 8, cy, 2, Color.web("#1d6a93"));
-        window.setStroke(Color.web("#8a5a0a"));
-        window.setStrokeWidth(0.8);
-        getChildren().add(window);
-
-        Circle window2 = new Circle(cx + 6, cy, 2, Color.web("#1d6a93"));
-        window2.setStroke(Color.web("#8a5a0a"));
-        window2.setStrokeWidth(0.8);
-        getChildren().add(window2);
-
-        Line periscope = new Line(cx, cy - 10, cx, cy - 16);
-        periscope.setStroke(Color.web("#3a3a34"));
-        periscope.setStrokeWidth(1.4);
-        getChildren().add(periscope);
-    }
-
-    private void drawBananaBoat(double cx, double cy) {
-        Polygon hull = new Polygon(
-            cx - 16, cy + 2,
-            cx + 16, cy + 2,
-            cx + 12, cy + 9,
-            cx - 12, cy + 9
-        );
-        hull.setFill(Color.web("#5a3a1c"));
-        hull.setStroke(Color.web("#2a1a05"));
-        hull.setStrokeWidth(1.2);
-        getChildren().add(hull);
-
-        for (int i = -1; i <= 1; i++) {
-            Ellipse banana = new Ellipse(cx + i * 6, cy - 3, 4, 2);
-            banana.setFill(Color.web("#ffd23d"));
-            banana.setStroke(Color.web("#8a5a0a"));
-            banana.setStrokeWidth(0.7);
-            banana.setRotate(-15 + i * 12);
-            getChildren().add(banana);
-        }
-    }
-
-    private void buildIsland(double w, double h) {
-        var stream = getClass().getResourceAsStream("/images/board/tiles/SAND.png");
-        if (stream == null) return;
-        Image sandImg = new Image(stream);
-        ImageView sandView = new ImageView(sandImg);
-        double imgH = sandImg.getHeight() == 0 ? SAND_SIZE
-            : SAND_SIZE * sandImg.getHeight() / sandImg.getWidth();
-        sandView.setFitWidth(SAND_SIZE);
-        sandView.setFitHeight(imgH);
-        sandView.setPreserveRatio(false);
-        sandView.setSmooth(true);
-        sandView.setX(w / 2 - SAND_SIZE / 2);
-        sandView.setY(h / 2 - imgH / 2);
-        getChildren().add(sandView);
-    }
-
-    private List<double[]> hexCenters(double cx, double cy) {
-        List<double[]> list = new ArrayList<>();
-        for (int r = 0; r < ROW_COLS.length; r++) {
-            int cols = ROW_COLS[r];
-            double y = cy + (r - 2) * HEX_H * 0.75;
-            double xOffset = -(cols - 1) / 2.0 * HEX_W;
-            for (int c = 0; c < cols; c++) {
-                list.add(new double[]{cx + xOffset + c * HEX_W, y});
+        int tileIndex = 0;
+        for (int row = 0; row < ROW_COLUMNS.length; row++) {
+            int columns = ROW_COLUMNS[row];
+            double y = cy + (row - 2) * HEX_HEIGHT * 0.75;
+            double xOffset = -(columns - 1) / 2.0 * HEX_WIDTH;
+            for (int col = 0; col < columns; col++) {
+                HexTile tile = sortedTiles.get(tileIndex++);
+                double x = cx + xOffset + col * HEX_WIDTH;
+                tileCenters.put(tile.getId(), new Point2D(x, y));
             }
         }
-        return list;
+
+        board.getIntersections().forEach(intersection ->
+                intersectionPoints.put(intersection.getId(), resolveIntersectionPoint(intersection))
+        );
     }
 
-    private void buildHexes(double w, double h) {
-        double cx = w / 2;
-        double cy = h / 2;
-        int idx = 0;
-        for (int r = 0; r < ROW_COLS.length; r++) {
-            int cols = ROW_COLS[r];
-            double y = cy + (r - 2) * HEX_H * 0.75;
-            double xOffset = -(cols - 1) / 2.0 * HEX_W;
-            for (int c = 0; c < cols; c++) {
-                double hx = cx + xOffset + c * HEX_W;
-                drawHex(hx, y, TILES[idx], NUMBERS[idx]);
-                idx++;
-            }
+    private void drawBackdrop() {
+        Rectangle ocean = new Rectangle(0, 0, boardWidth, boardHeight);
+        ocean.setFill(Color.web("#0f4d74"));
+        getChildren().add(ocean);
+
+        for (int i = 0; i < 6; i++) {
+            Circle bubble = new Circle(42 + i * 165, 54 + (i % 2) * 36, 18 + (i % 3) * 6);
+            bubble.setFill(Color.color(1, 1, 1, 0.08));
+            getChildren().add(bubble);
         }
     }
 
-    private static final Image BRIDGE_IMG;
-    static {
-        var s = HexBoard.class.getResourceAsStream("/images/board/harbors/Bridge.png");
-        BRIDGE_IMG = s != null ? new Image(s) : null;
-    }
+    private void drawTiles(Board board, String robberTileId) {
+        List<HexTile> sortedTiles = board.getTiles().stream()
+                .sorted(Comparator.comparingInt(tile -> numericSuffix(tile.getId())))
+                .toList();
 
-    private void buildHarbors(double w, double h) {
-        double cx = w / 2;
-        double cy = h / 2;
-        for (Harbor harbor : HARBORS) {
-            double hx = cx + harbor.dx;
-            double hy = cy + harbor.dy;
-            drawBridges(cx, cy, hx, hy);
-            drawHarbor(hx, hy, harbor);
+        for (HexTile tile : sortedTiles) {
+            Point2D center = tileCenters.get(tile.getId());
+            drawSingleTile(tile, center, tile.getId().equals(robberTileId));
         }
     }
 
-    private void drawBridges(double boardCx, double boardCy, double hx, double hy) {
-        if (BRIDGE_IMG == null) return;
-        // Find the actual nearest hex center from the full board layout
-        double[] nearest = hexCenters(boardCx, boardCy).stream()
-            .min(Comparator.comparingDouble(c -> Math.hypot(c[0] - hx, c[1] - hy)))
-            .orElse(null);
-        if (nearest == null) return;
-
-        double hexCx = nearest[0];
-        double hexCy = nearest[1];
-
-        // Direction from hex center toward harbor
-        double toHarborRad = Math.atan2(hy - hexCy, hx - hexCx);
-
-        // The coastal edge facing the harbor has its two corners at
-        // toHarborRad ± 30° from hex center, at radius HEX_SIZE.
-        // (pointy-top hex: each edge spans 60°, so each corner is ±30° from edge normal)
-        double cAx = hexCx + Math.cos(toHarborRad + Math.toRadians(30)) * HEX_SIZE;
-        double cAy = hexCy + Math.sin(toHarborRad + Math.toRadians(30)) * HEX_SIZE;
-        double cBx = hexCx + Math.cos(toHarborRad - Math.toRadians(30)) * HEX_SIZE;
-        double cBy = hexCy + Math.sin(toHarborRad - Math.toRadians(30)) * HEX_SIZE;
-
-        placeBridge(hx, hy, cAx, cAy);
-        placeBridge(hx, hy, cBx, cBy);
-    }
-
-    private void placeBridge(double hx, double hy, double cornerX, double cornerY) {
-        // Bridge runs straight from corner to harbor; angle = direction corner→harbor
-        double angleRad = Math.atan2(hy - cornerY, hx - cornerX);
-        double startX = cornerX + Math.cos(angleRad) * BRIDGE_GAP;
-        double startY = cornerY + Math.sin(angleRad) * BRIDGE_GAP;
-        double endX   = hx     - Math.cos(angleRad) * BRIDGE_END_GAP;
-        double endY   = hy     - Math.sin(angleRad) * BRIDGE_END_GAP;
-        double len    = Math.hypot(endX - startX, endY - startY);
-        double midX   = (startX + endX) / 2;
-        double midY   = (startY + endY) / 2;
-
-        ImageView bridge = new ImageView(BRIDGE_IMG);
-        bridge.setFitWidth(len);
-        bridge.setFitHeight(BRIDGE_H);
-        bridge.setPreserveRatio(false);
-        bridge.setSmooth(true);
-        bridge.setX(midX - len / 2);
-        bridge.setY(midY - BRIDGE_H / 2);
-        bridge.setRotate(Math.toDegrees(angleRad));
-        getChildren().add(bridge);
-    }
-
-    private void drawHarbor(double cx, double cy, Harbor h) {
-        // Build all elements in local coords (sign faces "up" = outward by default),
-        // then rotate the whole group so it faces away from the island.
-        Group g = new Group();
-
-        // Dock (horizontal bar at origin)
-        Rectangle dock = new Rectangle(-26, -8, 52, 16);
-        dock.setArcWidth(4); dock.setArcHeight(4);
-        dock.setFill(Color.web("#a35a14"));
-        dock.setStroke(Color.web("#5a2f0a"));
-        dock.setStrokeWidth(1.5);
-        g.getChildren().add(dock);
-
-        for (int i = 0; i < 4; i++) {
-            Line plank = new Line(-22 + i * 14, -6, -22 + i * 14, 6);
-            plank.setStroke(Color.web("#5a2f0a", 0.6));
-            plank.setStrokeWidth(1);
-            g.getChildren().add(plank);
-        }
-
-        // Post going upward (outward direction)
-        Rectangle post = new Rectangle(-2, -22, 4, 14);
-        post.setFill(Color.web("#5a2f0a"));
-        g.getChildren().add(post);
-
-        // Sign above post
-        Rectangle sign = new Rectangle(-22, -40, 44, 18);
-        sign.setArcWidth(4); sign.setArcHeight(4);
-        sign.setFill(h.color);
-        sign.setStroke(Color.web("#3a1d0a"));
-        sign.setStrokeWidth(1.2);
-        g.getChildren().add(sign);
-
-        Text label = new Text(h.label);
-        label.setFont(Font.font("Inter", FontWeight.BOLD, 8));
-        label.setFill(Color.web("#2a1a05"));
-        label.setX(-label.getLayoutBounds().getWidth() / 2);
-        label.setY(-29);
-        g.getChildren().add(label);
-
-        Text ratio = new Text(h.ratio);
-        ratio.setFont(Font.font("Inter", FontWeight.BOLD, 10));
-        ratio.setFill(Color.web("#2a1a05"));
-        ratio.setX(-ratio.getLayoutBounds().getWidth() / 2);
-        ratio.setY(-19);
-        g.getChildren().add(ratio);
-
-        // Rotate so sign faces outward from island.
-        // Default orientation = sign faces up (-Y). outwardDeg from atan2(dy,dx).
-        // Rotation to align "up" with outward direction = outwardDeg + 90.
-        double outwardDeg = Math.toDegrees(Math.atan2(h.dy, h.dx));
-        g.setRotate(outwardDeg + 90);
-        g.setTranslateX(cx);
-        g.setTranslateY(cy);
-        getChildren().add(g);
-    }
-
-    private void drawHex(double cx, double cy, Terrain terrain, Integer number) {
-        Polygon hex = makeHex(cx, cy, HEX_SIZE);
-        Image img = TILE_IMAGES.get(terrain);
-        if (img != null) {
-            hex.setFill(new ImagePattern(img));
+    private void drawSingleTile(HexTile tile, Point2D center, boolean hasRobber) {
+        TerrainVisual visual = TERRAIN_VISUALS.get(tile.getTerrainType());
+        Polygon hex = createHex(center.getX(), center.getY(), HEX_SIZE);
+        if (visual.image() != null) {
+            hex.setFill(new ImagePattern(visual.image()));
         } else {
-            hex.setFill(terrain.fill);
+            hex.setFill(visual.fill());
         }
-        hex.setStroke(null);
+        hex.setStroke(visual.edge());
+        hex.setStrokeWidth(2);
+        hex.setStrokeLineJoin(StrokeLineJoin.ROUND);
         getChildren().add(hex);
 
-        if (img == null) {
-            drawTerrainGlyph(cx, cy, terrain);
-        }
+        Text label = new Text(visual.label());
+        label.setFill(Color.color(0.1, 0.08, 0.04, 0.82));
+        label.setFont(Font.font("Georgia", FontWeight.BOLD, 11));
+        label.setX(center.getX() - label.getLayoutBounds().getWidth() / 2.0);
+        label.setY(center.getY() - 18);
+        getChildren().add(label);
 
-        double tokenCy = cy + 20;
-        if (number != null) {
-            Circle token = new Circle(cx, tokenCy, 14);
-            boolean hot = number == 6 || number == 8;
-            token.setFill(Color.web("#fff3d6"));
-            token.setStroke(hot ? Color.web("#b9281b") : Color.web("#5a3a1c"));
-            token.setStrokeWidth(1.5);
+        double tokenY = center.getY() + 24;
+        if (tile.getToken() != null) {
+            Circle token = new Circle(center.getX(), tokenY, 16);
+            boolean hot = tile.getToken() == 6 || tile.getToken() == 8;
+            token.setFill(Color.web("#fff2d7"));
+            token.setStroke(hot ? Color.web("#b72d1d") : Color.web("#5a3a1c"));
+            token.setStrokeWidth(2);
+            token.setEffect(TOKEN_SHADOW);
             getChildren().add(token);
 
-            Text num = new Text(String.valueOf(number));
-            num.setFont(Font.font("Georgia", FontWeight.BOLD, hot ? 16 : 14));
-            num.setFill(hot ? Color.web("#b9281b") : Color.web("#2a1a05"));
-            num.setTextAlignment(TextAlignment.CENTER);
-            var b = num.getLayoutBounds();
-            num.setX(cx - b.getWidth() / 2);
-            num.setY(tokenCy - b.getHeight() / 2 - b.getMinY());
-            getChildren().add(num);
-        } else {
-            Circle cage = new Circle(cx, tokenCy, 14);
-            cage.setFill(Color.web("#7e3fb8"));
-            cage.setStroke(Color.web("#1a1108"));
-            cage.setStrokeWidth(2);
-            getChildren().add(cage);
-            Text label = new Text("N");
-            label.setFont(Font.font("Georgia", FontWeight.BOLD, 14));
-            label.setFill(Color.WHITE);
-            var b = label.getLayoutBounds();
-            label.setX(cx - b.getWidth() / 2);
-            label.setY(tokenCy - b.getHeight() / 2 - b.getMinY());
+            Text number = new Text(String.valueOf(tile.getToken()));
+            number.setFont(Font.font("Georgia", FontWeight.BOLD, hot ? 17 : 15));
+            number.setFill(hot ? Color.web("#b72d1d") : Color.web("#25170b"));
+            number.setX(center.getX() - number.getLayoutBounds().getWidth() / 2.0);
+            number.setY(tokenY - number.getLayoutBounds().getCenterY());
+            getChildren().add(number);
+        }
+
+        if (hasRobber) {
+            Circle robber = new Circle(center.getX(), tokenY, 18);
+            robber.setFill(Color.web("#6d34a2"));
+            robber.setStroke(Color.web("#20112f"));
+            robber.setStrokeWidth(2.5);
+            robber.setEffect(new DropShadow(5, Color.color(0, 0, 0, 0.35)));
+            getChildren().add(robber);
+
+            Text marker = new Text("N");
+            marker.setFont(Font.font("Georgia", FontWeight.BLACK, 15));
+            marker.setFill(Color.WHITE);
+            marker.setX(center.getX() - marker.getLayoutBounds().getWidth() / 2.0);
+            marker.setY(tokenY - marker.getLayoutBounds().getCenterY());
+            getChildren().add(marker);
+        }
+    }
+
+    private void drawHarbors(Board board) {
+        List<Harbor> harbors = board.getHarbors().stream()
+                .sorted(Comparator.comparingInt(harbor -> numericSuffix(harbor.getId())))
+                .toList();
+
+        for (Harbor harbor : harbors) {
+            Point2D a = intersectionPoints.get(harbor.getAttachedPath().getEndpointA().getId());
+            Point2D b = intersectionPoints.get(harbor.getAttachedPath().getEndpointB().getId());
+            Point2D midpoint = a.midpoint(b);
+            Point2D outward = resolveHarborOutward(harbor, midpoint);
+            Point2D dock = midpoint.add(outward.multiply(HARBOR_DOCK_DISTANCE));
+            Point2D sign = midpoint.add(outward.multiply(HARBOR_SIGN_DISTANCE));
+            Color accent = harborAccent(harbor);
+
+            Line bridge = new Line(midpoint.getX(), midpoint.getY(), dock.getX(), dock.getY());
+            bridge.setStroke(Color.web("#7b532a"));
+            bridge.setStrokeWidth(10);
+            bridge.setStrokeLineCap(StrokeLineCap.ROUND);
+            getChildren().add(bridge);
+
+            Rectangle plate = new Rectangle(sign.getX() - 36, sign.getY() - 16, 72, 32);
+            plate.setArcWidth(8);
+            plate.setArcHeight(8);
+            plate.setFill(accent);
+            plate.setStroke(Color.web("#3e2410"));
+            plate.setStrokeWidth(1.5);
+            getChildren().add(plate);
+
+            Text ratio = new Text(harbor.getRatio() + ":1");
+            ratio.setFont(Font.font("Georgia", FontWeight.BOLD, 12));
+            ratio.setFill(Color.web("#21140a"));
+            ratio.setX(sign.getX() - ratio.getLayoutBounds().getWidth() / 2.0);
+            ratio.setY(sign.getY() - 2);
+            getChildren().add(ratio);
+
+            String display = abbreviateHarborName(harbor.getDisplayName());
+            Text label = new Text(display);
+            label.setFont(Font.font("Georgia", FontWeight.BOLD, 8));
+            label.setFill(Color.web("#21140a"));
+            label.setX(sign.getX() - label.getLayoutBounds().getWidth() / 2.0);
+            label.setY(sign.getY() + 10);
             getChildren().add(label);
         }
-
     }
 
-    private void drawTerrainGlyph(double cx, double cy, Terrain terrain) {
-        switch (terrain) {
-            case HUTAN -> drawPalm(cx, cy);
-            case KEBUN -> drawBananaTree(cx, cy);
-            case BUKIT -> drawRedMountain(cx, cy);
-            case TAMBANG -> drawGreyMountain(cx, cy);
-            case LADANG -> drawWheat(cx, cy);
-            case GURUN -> {}
+    private void drawPipes(Board board) {
+        List<Path> paths = board.getPaths().stream()
+                .sorted(Comparator.comparingInt(path -> numericSuffix(path.getId())))
+                .toList();
+
+        for (Path path : paths) {
+            if (path.getPipe().isEmpty()) {
+                continue;
+            }
+
+            Point2D a = intersectionPoints.get(path.getEndpointA().getId());
+            Point2D b = intersectionPoints.get(path.getEndpointB().getId());
+            if (a == null || b == null) {
+                continue;
+            }
+            Point2D start = insetPoint(a, b, PIPE_INSET);
+            Point2D end = insetPoint(b, a, PIPE_INSET);
+            Color color = playerFill(path.getPipe().orElseThrow().getOwner().getColor());
+            Color edge = playerEdge(path.getPipe().orElseThrow().getOwner().getColor());
+
+            Line shadow = new Line(start.getX() + 1.5, start.getY() + 3, end.getX() + 1.5, end.getY() + 3);
+            shadow.setStroke(Color.color(0, 0, 0, 0.25));
+            shadow.setStrokeWidth(9);
+            shadow.setStrokeLineCap(StrokeLineCap.ROUND);
+            getChildren().add(shadow);
+
+            Line pipe = new Line(start.getX(), start.getY(), end.getX(), end.getY());
+            pipe.setStroke(color);
+            pipe.setStrokeWidth(8.5);
+            pipe.setStrokeLineCap(StrokeLineCap.ROUND);
+            pipe.setEffect(new DropShadow(2, edge));
+            getChildren().add(pipe);
         }
     }
 
-    private void drawPalm(double cx, double cy) {
-        Group g = new Group();
-        Line trunk = new Line(cx - 18, cy + 10, cx - 18, cy - 8);
-        trunk.setStroke(Color.web("#5a3a1c"));
-        trunk.setStrokeWidth(2);
-        trunk.setStrokeLineCap(StrokeLineCap.ROUND);
-        g.getChildren().add(trunk);
-        for (double a : new double[]{-1.0, -0.4, 0.3, 1.0}) {
-            Line frond = new Line(cx - 18, cy - 8,
-                cx - 18 + Math.cos(a) * 12, cy - 8 - Math.abs(Math.sin(a)) * 10);
-            frond.setStroke(Color.web("#155525"));
-            frond.setStrokeWidth(2.5);
-            frond.setStrokeLineCap(StrokeLineCap.ROUND);
-            g.getChildren().add(frond);
-        }
-        g.setOpacity(0.85);
-        getChildren().add(g);
-    }
+    private void drawBuildings(Board board) {
+        List<Intersection> intersections = board.getIntersections().stream()
+                .sorted(Comparator.comparingInt(intersection -> numericSuffix(intersection.getId())))
+                .toList();
 
-    private void drawBananaTree(double cx, double cy) {
-        Group g = new Group();
-        Line trunk = new Line(cx + 16, cy + 10, cx + 16, cy - 4);
-        trunk.setStroke(Color.web("#5a3a1c"));
-        trunk.setStrokeWidth(2.5);
-        g.getChildren().add(trunk);
-        for (double a : new double[]{-0.9, -0.2, 0.5, 1.1}) {
-            Ellipse leaf = new Ellipse(cx + 16 + Math.cos(a) * 8,
-                cy - 4 - Math.abs(Math.sin(a)) * 6, 7, 3);
-            leaf.setFill(Color.web("#2a8a3a"));
-            leaf.setRotate(Math.toDegrees(a));
-            g.getChildren().add(leaf);
-        }
-        Ellipse bunch = new Ellipse(cx + 14, cy + 2, 4, 6);
-        bunch.setFill(Color.web("#ffd23d"));
-        bunch.setStroke(Color.web("#8a5a0a"));
-        bunch.setStrokeWidth(0.8);
-        g.getChildren().add(bunch);
-        g.setOpacity(0.85);
-        getChildren().add(g);
-    }
+        for (Intersection intersection : intersections) {
+            if (intersection.getBuilding().isEmpty()) {
+                continue;
+            }
 
-    private void drawRedMountain(double cx, double cy) {
-        Polygon peak = new Polygon(
-            cx - 18, cy + 12,
-            cx - 6,  cy - 6,
-            cx + 2,  cy + 4,
-            cx + 10, cy - 2,
-            cx + 20, cy + 12
-        );
-        peak.setFill(Color.web("#a83a1f"));
-        peak.setStroke(Color.web("#5a1e0a"));
-        peak.setStrokeWidth(1.2);
-        peak.setStrokeLineJoin(StrokeLineJoin.ROUND);
-        peak.setOpacity(0.85);
-        getChildren().add(peak);
-    }
-
-    private void drawGreyMountain(double cx, double cy) {
-        Polygon peak = new Polygon(
-            cx - 20, cy + 12,
-            cx - 6,  cy - 8,
-            cx + 4,  cy + 2,
-            cx + 12, cy - 4,
-            cx + 22, cy + 12
-        );
-        peak.setFill(Color.web("#7e7e76"));
-        peak.setStroke(Color.web("#3a3a34"));
-        peak.setStrokeWidth(1.2);
-        peak.setStrokeLineJoin(StrokeLineJoin.ROUND);
-        peak.setOpacity(0.9);
-        getChildren().add(peak);
-
-        Polygon snow = new Polygon(
-            cx - 8, cy - 4,
-            cx - 6, cy - 8,
-            cx - 3, cy - 4
-        );
-        snow.setFill(Color.WHITE);
-        snow.setOpacity(0.85);
-        getChildren().add(snow);
-    }
-
-    private void drawWheat(double cx, double cy) {
-        for (int i = 0; i < 3; i++) {
-            double x = cx - 12 + i * 10;
-            Line stem = new Line(x, cy + 10, x, cy - 6);
-            stem.setStroke(Color.web("#8a5a14"));
-            stem.setStrokeWidth(1.2);
-            stem.setOpacity(0.85);
-            getChildren().add(stem);
-            Ellipse head = new Ellipse(x, cy - 7, 3, 2);
-            head.setFill(Color.web("#e2b430"));
-            head.setOpacity(0.9);
-            getChildren().add(head);
-        }
-    }
-
-    private void buildBuildings(double w, double h) {
-        double cx = w / 2;
-        double cy = h / 2;
-
-        // Helper: get corner pixel of hex at (hcx, hcy), corner index 0-5
-        // pointy-top: corner i = angle 60*i - 90 degrees
-        // corner(hcx, hcy, i) = (hcx + HEX_SIZE*cos(60i-90°), hcy + HEX_SIZE*sin(60i-90°))
-
-        // Hex centers for reference (row, col within that row, 0-indexed)
-        // Row 0 (3 tiles): cols 0,1,2
-        // Row 1 (4 tiles): cols 0,1,2,3
-        // Row 2 (5 tiles): cols 0,1,2,3,4  ← middle row
-        // Row 3 (4 tiles): cols 0,1,2,3
-        // Row 4 (3 tiles): cols 0,1,2
-
-        // Sample pipes on actual hex edges using real corner positions
-        // Each pipe = one edge of a hex = corner i to corner (i+1)%6
-
-        // Middle row hex 2 (center hex), edge 0 (top-right: corner0→corner1)
-        drawPipeEdge(cx, cy, 0, PColor.RED);
-        // Middle row hex 2, edge 5 (top-left: corner5→corner0)
-        drawPipeEdge(cx, cy, 5, PColor.RED);
-        // Hex to the right of center, edge 4 (bottom-left)
-        drawPipeEdge(cx + HEX_W, cy, 4, PColor.BLUE);
-        // Hex above-right of center (row1 col2), edge 2 (bottom-right)
-        drawPipeEdge(cx + HEX_W / 2, cy - HEX_H * 0.75, 2, PColor.BLUE);
-        // Hex above-left of center (row1 col1), edge 3 (bottom)
-        drawPipeEdge(cx - HEX_W / 2, cy - HEX_H * 0.75, 3, PColor.GOLD);
-
-        // Intersections (corners) for buildings — use actual corner positions
-        double[] c0 = hexCorner(cx, cy, 0); // top of center hex
-        double[] c5 = hexCorner(cx, cy, 5); // top-left of center hex
-        double[] c1r = hexCorner(cx + HEX_W, cy, 5); // shared corner right hex
-        double[] c2ur = hexCorner(cx + HEX_W / 2, cy - HEX_H * 0.75, 2);
-        double[] c3ul = hexCorner(cx - HEX_W / 2, cy - HEX_H * 0.75, 3);
-
-        drawWatchPost(c0[0], c0[1], PColor.RED);
-        drawWatchPost(c5[0], c5[1], PColor.BLUE);
-        drawWatchPost(c1r[0], c1r[1], PColor.GOLD);
-        drawWatchPost(c3ul[0], c3ul[1], PColor.WHITE);
-        drawLab(c2ur[0], c2ur[1], PColor.RED);
-    }
-
-    // Returns pixel position of corner i for a hex centered at (hcx, hcy)
-    private double[] hexCorner(double hcx, double hcy, int i) {
-        double a = Math.toRadians(60.0 * i - 90.0);
-        return new double[]{hcx + HEX_SIZE * Math.cos(a), hcy + HEX_SIZE * Math.sin(a)};
-    }
-
-    // Draws a pipe along edge i of the hex centered at (hcx, hcy)
-    // Edge i connects corner i to corner (i+1)%6
-    private void drawPipeEdge(double hcx, double hcy, int edge, PColor color) {
-        double[] a = hexCorner(hcx, hcy, edge);
-        double[] b = hexCorner(hcx, hcy, (edge + 1) % 6);
-        drawPipe(a[0], a[1], b[0], b[1], color);
-    }
-
-    private void drawPipe(double x1, double y1, double x2, double y2, PColor color) {
-        Line shadow = new Line(x1, y1 + 4, x2, y2 + 4);
-        shadow.setStroke(Color.color(0, 0.08, 0.16, 0.4));
-        shadow.setStrokeWidth(10);
-        shadow.setStrokeLineCap(StrokeLineCap.ROUND);
-        getChildren().add(shadow);
-
-        Line pipe = new Line(x1, y1, x2, y2);
-        pipe.setStroke(color.fill);
-        pipe.setStrokeWidth(9);
-        pipe.setStrokeLineCap(StrokeLineCap.ROUND);
-        pipe.setEffect(new DropShadow(2, Color.color(0, 0.12, 0.2, 0.5)));
-        getChildren().add(pipe);
-    }
-
-    private void drawWatchPost(double cx, double cy, PColor color) {
-        Ellipse shadow = new Ellipse(cx, cy + 9, 10, 3);
-        shadow.setFill(Color.color(0, 0.08, 0.16, 0.45));
-        getChildren().add(shadow);
-
-        Ellipse base = new Ellipse(cx, cy + 4, 10, 4);
-        base.setFill(color.edge);
-        getChildren().add(base);
-
-        javafx.scene.shape.Rectangle body = new javafx.scene.shape.Rectangle(cx - 8, cy - 6, 16, 14);
-        body.setArcWidth(2); body.setArcHeight(2);
-        body.setFill(color.fill);
-        body.setStroke(Color.web("#0a0805"));
-        body.setStrokeWidth(1.4);
-        getChildren().add(body);
-
-        Polygon roof = new Polygon(
-            cx - 9, cy - 6,
-            cx,     cy - 14,
-            cx + 9, cy - 6
-        );
-        roof.setFill(color.edge);
-        roof.setStroke(Color.web("#0a0805"));
-        roof.setStrokeWidth(1.4);
-        getChildren().add(roof);
-    }
-
-    private void drawLab(double cx, double cy, PColor color) {
-        Ellipse shadow = new Ellipse(cx + 3, cy + 14, 14, 4);
-        shadow.setFill(Color.color(0, 0.08, 0.16, 0.45));
-        getChildren().add(shadow);
-
-        Polygon front = new Polygon(
-            cx - 11, cy - 8,
-            cx + 11, cy - 8,
-            cx + 11, cy + 12,
-            cx - 11, cy + 12
-        );
-        front.setFill(color.edge);
-        front.setStroke(Color.web("#0a0805"));
-        front.setStrokeWidth(1.4);
-        getChildren().add(front);
-
-        Polygon side = new Polygon(
-            cx + 11, cy - 8,
-            cx + 16, cy - 12,
-            cx + 16, cy + 8,
-            cx + 11, cy + 12
-        );
-        side.setFill(color.edge.darker());
-        side.setStroke(Color.web("#0a0805"));
-        side.setStrokeWidth(1.4);
-        side.setOpacity(0.85);
-        getChildren().add(side);
-
-        Polygon top = new Polygon(
-            cx - 11, cy - 8,
-            cx + 11, cy - 8,
-            cx + 16, cy - 12,
-            cx - 6,  cy - 12
-        );
-        top.setFill(color.fill);
-        top.setStroke(Color.web("#0a0805"));
-        top.setStrokeWidth(1.4);
-        getChildren().add(top);
-
-        javafx.scene.shape.Rectangle chimney = new javafx.scene.shape.Rectangle(cx + 2, cy - 16, 4, 6);
-        chimney.setFill(color.edge);
-        chimney.setStroke(Color.web("#0a0805"));
-        chimney.setStrokeWidth(1);
-        getChildren().add(chimney);
-    }
-
-    private static Polygon makeHex(double cx, double cy, double r) {
-        Polygon p = new Polygon();
-        for (int i = 0; i < 6; i++) {
-            double a = Math.toRadians(60.0 * i - 90.0);
-            p.getPoints().addAll(cx + r * Math.cos(a), cy + r * Math.sin(a));
-        }
-        return p;
-    }
-
-    private static final Map<Terrain, Image> TILE_IMAGES = new EnumMap<>(Terrain.class);
-
-    static {
-        for (Terrain t : Terrain.values()) {
-            var stream = HexBoard.class.getResourceAsStream(t.imagePath);
-            if (stream != null) {
-                TILE_IMAGES.put(t, new Image(stream));
+            Point2D point = intersectionPoints.get(intersection.getId());
+            if (point == null) {
+                continue;
+            }
+            PlayerColor color = intersection.getBuilding().orElseThrow().getOwner().getColor();
+            if (intersection.getBuilding().orElseThrow().getType() == BuildingType.LABORATORY) {
+                drawLaboratory(point, color);
+            } else {
+                drawMonitoringPost(point, color);
             }
         }
     }
 
-    private enum Terrain {
-        HUTAN  ("#3a9648", "#175a25", "Hutan",       "/images/board/tiles/Hutan.png"),
-        BUKIT  ("#d56a3a", "#7a2f12", "Bukit",        "/images/board/tiles/Bukit.png"),
-        LADANG ("#ffd864", "#c2901c", "Ladang",       "/images/board/tiles/Ladang.png"),
-        TAMBANG("#9a9a92", "#4a4a44", "Tambang",      "/images/board/tiles/Gunung.png"),
-        KEBUN  ("#6cbf48", "#2f6e1f", "Kebun Pisang", "/images/board/tiles/KebunPisang.png"),
-        GURUN  ("#f1d588", "#b58b3a", "Gurun",        "/images/board/tiles/Gurun.png");
+    private void drawMonitoringPost(Point2D point, PlayerColor color) {
+        Group group = new Group();
+        Color fill = playerFill(color);
+        Color edge = playerEdge(color);
 
-        final Color fill, edge;
-        final String label;
-        final String imagePath;
+        Circle shadow = new Circle(point.getX(), point.getY() + 10, 8, Color.color(0, 0, 0, 0.22));
+        group.getChildren().add(shadow);
 
-        Terrain(String fill, String edge, String label, String imagePath) {
-            this.fill = Color.web(fill);
-            this.edge = Color.web(edge);
-            this.label = label;
-            this.imagePath = imagePath;
+        Rectangle body = new Rectangle(point.getX() - 9, point.getY() - 4, 18, 16);
+        body.setArcWidth(4);
+        body.setArcHeight(4);
+        body.setFill(fill);
+        body.setStroke(edge);
+        body.setStrokeWidth(1.8);
+        group.getChildren().add(body);
+
+        Polygon roof = new Polygon(
+                point.getX() - 11, point.getY() - 4,
+                point.getX(), point.getY() - 14,
+                point.getX() + 11, point.getY() - 4
+        );
+        roof.setFill(edge);
+        roof.setStroke(Color.web("#120d07"));
+        roof.setStrokeWidth(1.3);
+        group.getChildren().add(roof);
+
+        getChildren().add(group);
+    }
+
+    private void drawLaboratory(Point2D point, PlayerColor color) {
+        Group group = new Group();
+        Color fill = playerFill(color).deriveColor(0, 1, 0.92, 1);
+        Color edge = playerEdge(color);
+
+        Circle shadow = new Circle(point.getX() + 2, point.getY() + 12, 10, Color.color(0, 0, 0, 0.22));
+        group.getChildren().add(shadow);
+
+        Rectangle body = new Rectangle(point.getX() - 12, point.getY() - 6, 24, 20);
+        body.setArcWidth(4);
+        body.setArcHeight(4);
+        body.setFill(fill);
+        body.setStroke(edge);
+        body.setStrokeWidth(2);
+        group.getChildren().add(body);
+
+        Rectangle chimney = new Rectangle(point.getX() + 5, point.getY() - 14, 5, 10);
+        chimney.setFill(edge);
+        chimney.setStroke(Color.web("#120d07"));
+        chimney.setStrokeWidth(1);
+        group.getChildren().add(chimney);
+
+        Line window = new Line(point.getX() - 6, point.getY() + 4, point.getX() + 6, point.getY() + 4);
+        window.setStroke(edge);
+        window.setStrokeWidth(1.5);
+        group.getChildren().add(window);
+
+        getChildren().add(group);
+    }
+
+    private Point2D hexCorner(double cx, double cy, int corner) {
+        double angle = Math.toRadians(60.0 * corner - 30.0);
+        return new Point2D(
+                cx + HEX_SIZE * Math.cos(angle),
+                cy + HEX_SIZE * Math.sin(angle)
+        );
+    }
+
+    private Polygon createHex(double cx, double cy, double radius) {
+        Polygon polygon = new Polygon();
+        for (int i = 0; i < 6; i++) {
+            Point2D point = hexCorner(cx, cy, i);
+            polygon.getPoints().addAll(point.getX(), point.getY());
+        }
+        return polygon;
+    }
+
+    private Point2D resolveIntersectionPoint(Intersection intersection) {
+        List<Point2D> candidates = new ArrayList<>();
+        for (HexTile tile : intersection.getAdjacentTiles()) {
+            Point2D tileCenter = tileCenters.get(tile.getId());
+            if (tileCenter == null) {
+                continue;
+            }
+            List<Intersection> tileIntersections = tile.getIntersections();
+            for (int corner = 0; corner < tileIntersections.size(); corner++) {
+                if (tileIntersections.get(corner) == intersection) {
+                    candidates.add(hexCorner(tileCenter.getX(), tileCenter.getY(), corner));
+                    break;
+                }
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        double x = candidates.stream().mapToDouble(Point2D::getX).average().orElse(0);
+        double y = candidates.stream().mapToDouble(Point2D::getY).average().orElse(0);
+        return new Point2D(x, y);
+    }
+
+    private Point2D resolveHarborOutward(Harbor harbor, Point2D midpoint) {
+        List<HexTile> adjacentTiles = harbor.getAttachedPath().getAdjacentTiles();
+        if (adjacentTiles.size() == 1) {
+            Point2D tileCenter = tileCenters.get(adjacentTiles.getFirst().getId());
+            if (tileCenter != null) {
+                Point2D vector = midpoint.subtract(tileCenter);
+                if (vector.magnitude() > 0) {
+                    return vector.normalize();
+                }
+            }
+        }
+
+        Point2D boardCenter = new Point2D(boardWidth / 2.0, boardHeight / 2.0);
+        Point2D vector = midpoint.subtract(boardCenter);
+        return vector.magnitude() == 0 ? new Point2D(0, -1) : vector.normalize();
+    }
+
+    private Point2D insetPoint(Point2D anchor, Point2D other, double inset) {
+        Point2D direction = other.subtract(anchor);
+        if (direction.magnitude() == 0) {
+            return anchor;
+        }
+        return anchor.add(direction.normalize().multiply(inset));
+    }
+
+    private Color harborAccent(Harbor harbor) {
+        if (harbor.getRatio() == 3) {
+            return Color.web("#c8dfeb");
+        }
+
+        String name = harbor.getDisplayName().toLowerCase();
+        if (name.contains("pisang") || name.contains("banana")) {
+            return Color.web("#f8d348");
+        }
+        if (name.contains("kayu") || name.contains("wood")) {
+            return Color.web("#6eb16e");
+        }
+        if (name.contains("gandum") || name.contains("wheat")) {
+            return Color.web("#f6d884");
+        }
+        if (name.contains("bijih") || name.contains("ore")) {
+            return Color.web("#bdbdb6");
+        }
+        if (name.contains("bata") || name.contains("brick")) {
+            return Color.web("#de8a5b");
+        }
+        return Color.web("#ddd3bc");
+    }
+
+    private String abbreviateHarborName(String name) {
+        if (name == null || name.isBlank()) {
+            return "";
+        }
+
+        String[] parts = name.split("\\s+");
+        if (parts.length == 1) {
+            return parts[0].toUpperCase();
+        }
+        return parts[0].toUpperCase();
+    }
+
+    private String findDefaultRobberTile(Board board) {
+        return board.getTiles().stream()
+                .filter(tile -> tile.getTerrainType() == TerrainType.DESERT)
+                .findFirst()
+                .map(HexTile::getId)
+                .orElse("");
+    }
+
+    private int numericSuffix(String id) {
+        int index = 0;
+        while (index < id.length() && !Character.isDigit(id.charAt(index))) {
+            index++;
+        }
+        return Integer.parseInt(id.substring(index));
+    }
+
+    private static Color playerFill(PlayerColor color) {
+        return switch (color) {
+            case RED -> Color.web("#e24f43");
+            case BLUE -> Color.web("#2e6bb6");
+            case GREEN -> Color.web("#efe5cd");
+            case YELLOW -> Color.web("#f2c63d");
+        };
+    }
+
+    private static Color playerEdge(PlayerColor color) {
+        return switch (color) {
+            case RED -> Color.web("#8e251d");
+            case BLUE -> Color.web("#173c74");
+            case GREEN -> Color.web("#8f8266");
+            case YELLOW -> Color.web("#8e6a11");
+        };
+    }
+
+    private static Map<TerrainType, TerrainVisual> createTerrainVisuals() {
+        Map<TerrainType, TerrainVisual> visuals = new EnumMap<>(TerrainType.class);
+        visuals.put(TerrainType.FOREST, new TerrainVisual(loadImage("/images/board/tiles/Hutan.png"), Color.web("#3a9648"), Color.web("#185628"), "HUTAN"));
+        visuals.put(TerrainType.HILL, new TerrainVisual(loadImage("/images/board/tiles/Bukit.png"), Color.web("#cf7a48"), Color.web("#6d3015"), "BUKIT"));
+        visuals.put(TerrainType.WHEAT_FIELD, new TerrainVisual(loadImage("/images/board/tiles/Ladang.png"), Color.web("#f0cf6a"), Color.web("#9a7116"), "LADANG"));
+        visuals.put(TerrainType.MOUNTAIN, new TerrainVisual(loadImage("/images/board/tiles/Gunung.png"), Color.web("#a0a09a"), Color.web("#4a4a43"), "GUNUNG"));
+        visuals.put(TerrainType.BANANA_PLANTATION, new TerrainVisual(loadImage("/images/board/tiles/KebunPisang.png"), Color.web("#6fbe4f"), Color.web("#2f6920"), "PISANG"));
+        visuals.put(TerrainType.DESERT, new TerrainVisual(loadImage("/images/board/tiles/Gurun.png"), Color.web("#d9bb74"), Color.web("#8c6c2a"), "GURUN"));
+        return visuals;
+    }
+
+    private static Image loadImage(String path) {
+        try (InputStream stream = HexBoard.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                return null;
+            }
+            return new Image(stream);
+        } catch (Exception ex) {
+            return null;
         }
     }
 
-    private record Harbor(String label, String ratio, Color color, double dx, double dy) {}
-
-    private enum PColor {
-        RED  ("#e64b3f", "#962820"),
-        BLUE ("#2c6db5", "#1b4778"),
-        GOLD ("#f5c93a", "#a07c14"),
-        WHITE("#efe6cc", "#b8aa86");
-
-        final Color fill, edge;
-        PColor(String fill, String edge) {
-            this.fill = Color.web(fill);
-            this.edge = Color.web(edge);
-        }
+    private record TerrainVisual(Image image, Color fill, Color edge, String label) {
     }
 }

@@ -26,6 +26,7 @@ class FxmlLoadTest extends ApplicationTest {
             "/fxml/victory_dialog.fxml",
             "/fxml/steal_dialog.fxml",
             "/fxml/discard_dialog.fxml",
+            "/fxml/dice_roll_dialog.fxml",
         };
         for (String fxml : fxmls) {
             Parent root = FXMLLoader.load(FxmlLoadTest.class.getResource(fxml));

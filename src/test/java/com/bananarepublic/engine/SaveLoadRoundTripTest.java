@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,6 +92,8 @@ class SaveLoadRoundTripTest {
 
         p1.addResource(ResourceType.ORE, 3);
         p1.addResource(ResourceType.WHEAT, 2);
+        state.getTurnState().setCurrentPlayerIndex(0);
+        state.getTurnState().setPhase(TurnPhase.TRADE_BUILD);
         engine.upgradeLaboratory(p1.getId(), p1Intersection.getId());
 
         p1.addResource(ResourceType.WOOD, 2);
@@ -139,6 +142,8 @@ class SaveLoadRoundTripTest {
         turnState.setHasPlayedDevelopmentCard(true);
         turnState.setRemainingSeconds(42);
         turnState.addNewlyBoughtCard("ROAD-HAND");
+        turnState.setPendingDiscardPlayerIds(Set.of("P1", "P3"));
+        turnState.setNimonMovedThisSeven(true);
 
         return engine;
     }
@@ -155,6 +160,8 @@ class SaveLoadRoundTripTest {
         assertEquals(expected.getTurnState().isWaitingForSetupPipe(), actual.getTurnState().isWaitingForSetupPipe());
         assertEquals(expected.getTurnState().getSetupPostIntersectionId(), actual.getTurnState().getSetupPostIntersectionId());
         assertEquals(expected.getTurnState().getNewlyBoughtCardIds(), actual.getTurnState().getNewlyBoughtCardIds());
+        assertEquals(expected.getTurnState().getPendingDiscardPlayerIds(), actual.getTurnState().getPendingDiscardPlayerIds());
+        assertEquals(expected.getTurnState().isNimonMovedThisSeven(), actual.getTurnState().isNimonMovedThisSeven());
         assertEquals(expected.getWinner().map(Player::getId), actual.getWinner().map(Player::getId));
         assertEquals(expected.getLongestRoadHolder().map(Player::getId), actual.getLongestRoadHolder().map(Player::getId));
         assertEquals(expected.getLargestArmyHolder().map(Player::getId), actual.getLargestArmyHolder().map(Player::getId));

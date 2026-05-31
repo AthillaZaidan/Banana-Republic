@@ -4,6 +4,7 @@ import com.bananarepublic.exception.InvalidTradeException;
 import com.bananarepublic.model.board.HexTile;
 import com.bananarepublic.model.board.Intersection;
 import com.bananarepublic.model.building.MonitoringPost;
+import com.bananarepublic.model.card.KnightCard;
 import com.bananarepublic.model.harbor.Harbor;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.player.PlayerColor;
@@ -174,6 +175,38 @@ class TradeAndNimonFlowTest {
             engine.finishNimonAfterSevenWithoutSteal();
         }
         assertEquals(TurnPhase.TRADE_BUILD, state.getTurnState().getPhase());
+    }
+
+    @Test
+    void knightCardRequiresAValidAdjacentVictim() {
+        GameEngine engine = createTwoPlayerGameInTradeBuild();
+        GameState state = engine.getState();
+        Player active = state.getCurrentPlayer();
+        Player other = state.getPlayers().stream()
+                .filter(player -> !player.equals(active))
+                .findFirst()
+                .orElseThrow();
+        other.addResource(ResourceType.WOOD, 1);
+
+        KnightCard knightCard = new KnightCard("KNIGHT-HAND");
+        active.addCard(knightCard);
+
+        String targetTileId = other.getOwnedBuildings().stream()
+                .flatMap(building -> building.getLocation().getAdjacentTiles().stream())
+                .map(HexTile::getId)
+                .filter(id -> !id.equals(state.getNimonTileId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThrows(RuntimeException.class, () ->
+                engine.playDevelopmentCard(active.getId(), knightCard.getId(), targetTileId, active.getId()));
+
+        int otherBefore = other.getTotalResourceCards();
+        int activeBefore = active.getTotalResourceCards();
+        engine.playDevelopmentCard(active.getId(), knightCard.getId(), targetTileId, other.getId());
+
+        assertEquals(otherBefore - 1, other.getTotalResourceCards());
+        assertEquals(activeBefore + 1, active.getTotalResourceCards());
     }
 
     private GameEngine createTwoPlayerGameInTradeBuild() {

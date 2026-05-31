@@ -4,10 +4,12 @@ import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.Stepper;
 import com.bananarepublic.ui.GameSession;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -21,6 +23,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class DiscardDialogController {
     private record Holding(ResourceType type, ResourceIcons.Kind kind, String label, int hold) {}
@@ -42,47 +45,11 @@ public class DiscardDialogController {
             close();
             return;
         }
-
-        GameEngine engine = GameSession.engine();
-        discardPlayer = engine.getState().getCurrentPlayer();
-        required = discardPlayer.getTotalResourceCards() > 7 ? discardPlayer.getTotalResourceCards() / 2 : 0;
-        if (required == 0) {
+        if (!loadDiscardPlayer()) {
             close();
             return;
         }
-        ruleText.setText("A 7 was rolled. You hold " + discardPlayer.getTotalResourceCards()
-                + " cards. You must discard floor(" + discardPlayer.getTotalResourceCards() + "/2) = " + required + ".");
-
-        List<Holding> holdings = List.of(
-                new Holding(ResourceType.WOOD, ResourceIcons.Kind.WOOD, "WOOD", discardPlayer.getResourceAmount(ResourceType.WOOD)),
-                new Holding(ResourceType.BRICK, ResourceIcons.Kind.BRICK, "BRICK", discardPlayer.getResourceAmount(ResourceType.BRICK)),
-                new Holding(ResourceType.WHEAT, ResourceIcons.Kind.WHEAT, "WHEAT", discardPlayer.getResourceAmount(ResourceType.WHEAT)),
-                new Holding(ResourceType.ORE, ResourceIcons.Kind.ORE, "ORE", discardPlayer.getResourceAmount(ResourceType.ORE)),
-                new Holding(ResourceType.BANANA, ResourceIcons.Kind.BANANA, "BANANA", discardPlayer.getResourceAmount(ResourceType.BANANA))
-        );
-
-        for (Holding h : holdings) {
-            VBox col = new VBox(4);
-            col.setAlignment(Pos.CENTER);
-            col.setStyle("-fx-padding: 12; -fx-background-color: rgba(255,255,255,0.6);"
-                + " -fx-border-color: -parchment-line; -fx-border-radius: 10;"
-                + " -fx-background-radius: 10;");
-            HBox.setHgrow(col, Priority.ALWAYS);
-
-            StackPane icon = new StackPane(ResourceIcons.of(h.kind()));
-            icon.setMinSize(30, 30); icon.setMaxSize(30, 30);
-            Label name = new Label(h.label());
-            name.getStyleClass().add("eyebrow");
-            Label hold = new Label("Hold: " + h.hold());
-            hold.setStyle("-fx-font-size: 11px; -fx-text-fill: -ink-mute;");
-            Stepper stepper = new Stepper(0, 0, h.hold());
-            stepper.valueProperty().addListener((obs, oldV, newV) -> refreshProgress());
-            steppers.add(stepper);
-            steppersByType.put(h.type(), stepper);
-
-            col.getChildren().addAll(icon, name, hold, stepper);
-            columns.getChildren().add(col);
-        }
+        rebuildColumns();
         refreshProgress();
     }
 
@@ -95,6 +62,7 @@ public class DiscardDialogController {
 
     @FXML
     private void onConfirm() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         ResourceInventory discarded = new ResourceInventory();
         for (Map.Entry<ResourceType, Stepper> entry : steppersByType.entrySet()) {
             int amount = entry.getValue().valueProperty().get();
@@ -113,13 +81,83 @@ public class DiscardDialogController {
             progressLabel.setText(ex.getMessage());
             return;
         }
+
+        if (loadDiscardPlayer()) {
+            rebuildColumns();
+            refreshProgress();
+            return;
+        }
+
         close();
+        GameController controller = GameSession.getGameController();
+        if (controller != null) {
+            Platform.runLater(controller::continueSpecialTurnFlow);
+        }
     }
 
     @FXML
-    private void onClose() { close(); }
+    private void onClose() {
+        progressLabel.setText("Complete the required discard to continue.");
+    }
 
     private void close() {
         Navigator.closeOverlay(root);
+    }
+
+    private boolean loadDiscardPlayer() {
+        GameEngine engine = GameSession.engine();
+        Set<String> pendingPlayerIds = engine.getState().getTurnState().getPendingDiscardPlayerIds();
+        discardPlayer = engine.getState().getPlayers().stream()
+                .filter(player -> pendingPlayerIds.contains(player.getId()))
+                .findFirst()
+                .orElse(null);
+        if (discardPlayer == null) {
+            required = 0;
+            return false;
+        }
+
+        required = discardPlayer.getTotalResourceCards() / 2;
+        ruleText.setText("A 7 was rolled. " + discardPlayer.getName() + " holds "
+                + discardPlayer.getTotalResourceCards() + " cards and must discard floor("
+                + discardPlayer.getTotalResourceCards() + "/2) = " + required + ".");
+        return true;
+    }
+
+    private void rebuildColumns() {
+        columns.getChildren().clear();
+        steppers.clear();
+        steppersByType.clear();
+
+        List<Holding> holdings = List.of(
+                new Holding(ResourceType.WOOD, ResourceIcons.Kind.WOOD, "WOOD", discardPlayer.getResourceAmount(ResourceType.WOOD)),
+                new Holding(ResourceType.BRICK, ResourceIcons.Kind.BRICK, "BRICK", discardPlayer.getResourceAmount(ResourceType.BRICK)),
+                new Holding(ResourceType.WHEAT, ResourceIcons.Kind.WHEAT, "WHEAT", discardPlayer.getResourceAmount(ResourceType.WHEAT)),
+                new Holding(ResourceType.ORE, ResourceIcons.Kind.ORE, "ORE", discardPlayer.getResourceAmount(ResourceType.ORE)),
+                new Holding(ResourceType.BANANA, ResourceIcons.Kind.BANANA, "BANANA", discardPlayer.getResourceAmount(ResourceType.BANANA))
+        );
+
+        for (Holding h : holdings) {
+            VBox col = new VBox(4);
+            col.setAlignment(Pos.CENTER);
+            col.setStyle("-fx-padding: 12; -fx-background-color: rgba(255,255,255,0.6);"
+                    + " -fx-border-color: -parchment-line; -fx-border-radius: 10;"
+                    + " -fx-background-radius: 10;");
+            HBox.setHgrow(col, Priority.ALWAYS);
+
+            StackPane icon = new StackPane(ResourceIcons.of(h.kind()));
+            icon.setMinSize(30, 30);
+            icon.setMaxSize(30, 30);
+            Label name = new Label(h.label());
+            name.getStyleClass().add("eyebrow");
+            Label hold = new Label("Hold: " + h.hold());
+            hold.setStyle("-fx-font-size: 11px; -fx-text-fill: -ink-mute;");
+            Stepper stepper = new Stepper(0, 0, h.hold());
+            stepper.valueProperty().addListener((obs, oldV, newV) -> refreshProgress());
+            steppers.add(stepper);
+            steppersByType.put(h.type(), stepper);
+
+            col.getChildren().addAll(icon, name, hold, stepper);
+            columns.getChildren().add(col);
+        }
     }
 }

@@ -55,7 +55,7 @@
                 <Label fx:id="playTime" text="00:42:17"
                        styleClass="text-mono"
                        style="-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: -ink-1;"/>
-                <Label text="22 rounds · 7 trades" styleClass="text-mute"
+                <Label fx:id="summaryLabel" text="22 rounds · 7 trades" styleClass="text-mute"
                        style="-fx-font-size: 11px;"/>
             </VBox>
 

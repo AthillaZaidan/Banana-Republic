@@ -17,62 +17,110 @@
 
     <Pane fx:id="livingLayer" pickOnBounds="false"/>
 
-    <StackPane fx:id="boardHolder" alignment="CENTER">
-        <padding><Insets top="100" right="320" bottom="120" left="100"/></padding>
-    </StackPane>
+    <VBox fillWidth="true">
+        <StackPane VBox.vgrow="ALWAYS">
+            <StackPane fx:id="boardHolder" alignment="CENTER">
+                <padding><Insets top="28" right="320" bottom="28" left="100"/></padding>
+            </StackPane>
 
-    <AnchorPane fx:id="hud" pickOnBounds="false">
+            <AnchorPane fx:id="hud" pickOnBounds="false">
 
-        <HBox fx:id="topStrip" spacing="12" alignment="CENTER_LEFT"
-              AnchorPane.topAnchor="36" AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40">
-        </HBox>
+                <HBox fx:id="topStrip" spacing="12" alignment="CENTER_LEFT"
+                      managed="false" visible="false"
+                      AnchorPane.topAnchor="36" AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40">
+                </HBox>
 
-        <Label styleClass="map-plaque" text="PETA KEPULAUAN BANANA REPUBLIC"
-               AnchorPane.topAnchor="108" AnchorPane.leftAnchor="120"/>
+                <Label styleClass="map-plaque" text="PETA KEPULAUAN BANANA REPUBLIC"
+                       managed="false" visible="false"
+                       AnchorPane.topAnchor="108" AnchorPane.leftAnchor="120"/>
+                <Label fx:id="phaseLabel" styleClass="warn-band"
+                       managed="false" visible="false"
+                       AnchorPane.topAnchor="146" AnchorPane.leftAnchor="120"
+                       text="Resource Gathering: roll dice."/>
 
-        <VBox spacing="10" AnchorPane.leftAnchor="40" AnchorPane.topAnchor="240">
-            <Button styleClass="btn,btn-icon,btn-icon-teal" text="📊" onAction="#onScoreboard"/>
-            <Button styleClass="btn,btn-icon"             text="🔁" onAction="#onTrade"/>
-            <Button styleClass="btn,btn-icon,btn-icon-teal" text="🃏" onAction="#onCards"/>
-            <Button styleClass="btn,btn-icon"             text="⚙"  onAction="#onSettings"/>
-        </VBox>
-
-        <VBox fx:id="rightSidebar" spacing="10"
-              AnchorPane.topAnchor="120" AnchorPane.rightAnchor="40"
-              AnchorPane.bottomAnchor="130"
-              prefWidth="260">
-            <Label styleClass="plaque" text="NIMON TEAM"/>
-            <VBox fx:id="teamList" spacing="10"/>
-            <Label styleClass="plaque" text="LOGBOOK">
-                <VBox.margin><Insets top="6"/></VBox.margin>
-            </Label>
-            <ScrollPane fx:id="logScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
-                        hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
-                <VBox fx:id="logbook" styleClass="card-dark" spacing="6">
-                    <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
+                <VBox spacing="10" AnchorPane.leftAnchor="40" AnchorPane.topAnchor="120"
+                      style="-fx-padding: 14; -fx-background-color: rgba(17,33,45,0.78);
+                             -fx-border-color: rgba(244,201,118,0.32); -fx-border-width: 1.2;
+                             -fx-background-radius: 14; -fx-border-radius: 14;">
+                    <Button styleClass="btn,btn-icon,btn-icon-teal" text="📊" onAction="#onScoreboard"/>
+                    <Button styleClass="btn,btn-icon"             text="🔁" onAction="#onTrade"/>
+                    <Button styleClass="btn,btn-icon,btn-icon-teal" text="🃏" onAction="#onCards"/>
+                    <Button styleClass="btn,btn-icon"             text="⚙"  onAction="#onSettings"/>
+                    <VBox spacing="8">
+                        <Button fx:id="buildPostBtn" styleClass="btn,btn-outline" text="BUILD POST"
+                                onAction="#onBuildPost" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
+                        <Button fx:id="buildPipeBtn" styleClass="btn,btn-outline" text="BUILD PIPE"
+                                onAction="#onBuildPipe" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
+                        <Button fx:id="upgradeLabBtn" styleClass="btn,btn-outline" text="UPGRADE LAB"
+                                onAction="#onUpgradeLab" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
+                        <Button fx:id="resolveNimonBtn" styleClass="btn,btn-outline" text="MOVE NIMON"
+                                onAction="#onResolveNimon" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
+                    </VBox>
                 </VBox>
-            </ScrollPane>
-        </VBox>
 
-        <HBox spacing="12" alignment="CENTER_LEFT"
-              AnchorPane.leftAnchor="40" AnchorPane.rightAnchor="40"
-              AnchorPane.bottomAnchor="40">
+                <VBox fx:id="rightSidebar" spacing="10"
+                      AnchorPane.topAnchor="36" AnchorPane.rightAnchor="40"
+                      AnchorPane.bottomAnchor="24"
+                      prefWidth="260">
+                    <Label styleClass="plaque" text="NIMON TEAM"/>
+                    <VBox fx:id="teamList" spacing="10"/>
+                    <Label styleClass="plaque" text="LOGBOOK">
+                        <VBox.margin><Insets top="6"/></VBox.margin>
+                    </Label>
+                    <ScrollPane fx:id="logScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
+                                hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                        <VBox fx:id="logbook" styleClass="card-dark" spacing="6">
+                            <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
+                        </VBox>
+                    </ScrollPane>
+                </VBox>
+            </AnchorPane>
+        </StackPane>
 
-            <HBox fx:id="resBar" styleClass="res-bar" alignment="CENTER_LEFT"/>
+        <StackPane style="-fx-padding: 0 18 18 18;">
+            <HBox spacing="20" alignment="CENTER_LEFT"
+                  style="-fx-min-height: 132; -fx-pref-height: 132; -fx-padding: 10 18;
+                         -fx-background-color: rgba(9,18,26,0.96);
+                         -fx-border-color: rgba(244,201,118,0.22) transparent transparent transparent;
+                         -fx-border-width: 1.4 0 0 0;">
+                <HBox fx:id="resBar" styleClass="res-bar" alignment="CENTER_LEFT"/>
 
-            <Region HBox.hgrow="ALWAYS"/>
+                <Region HBox.hgrow="ALWAYS"/>
 
-            <VBox fx:id="timerChip" styleClass="timer-chip" alignment="CENTER">
-                <Label fx:id="timerValue" styleClass="timer-value" text="01:30"/>
-                <Label styleClass="timer-label" text="TIME REMAINING"/>
-            </VBox>
+                <HBox spacing="14" alignment="CENTER_RIGHT">
+                    <VBox fx:id="timerChip" styleClass="timer-chip" alignment="CENTER">
+                        <Label fx:id="timerValue" styleClass="timer-value" text="01:30"/>
+                        <Label styleClass="timer-label" text="TIME REMAINING"/>
+                    </VBox>
 
-            <Button styleClass="btn,btn-icon,btn-icon-dark" text="🎲" onAction="#onRollDice"/>
-            <Button styleClass="btn,btn-gold" text="END TURN  ▶" onAction="#onEndTurn"
-                    style="-fx-padding: 14 32; -fx-font-size: 14px;"/>
-        </HBox>
+                    <VBox alignment="CENTER_RIGHT" spacing="0"
+                          style="-fx-padding: 10 12 12 12; -fx-background-color: rgba(17,33,45,0.9);
+                                 -fx-border-color: rgba(244,201,118,0.24); -fx-border-width: 1.2;
+                                 -fx-background-radius: 14; -fx-border-radius: 14;">
+                        <Label fx:id="diceSummaryLabel" text=""
+                               managed="false" visible="false"/>
+                        <HBox spacing="8" alignment="CENTER_RIGHT">
+                            <StackPane style="-fx-min-width: 82; -fx-pref-width: 82; -fx-min-height: 82; -fx-pref-height: 82;
+                                              -fx-background-color: #ffffff; -fx-border-color: #d9b86f;
+                                              -fx-border-radius: 14; -fx-background-radius: 14;">
+                                <Pane fx:id="dieOneValue" pickOnBounds="false"/>
+                            </StackPane>
+                            <StackPane style="-fx-min-width: 82; -fx-pref-width: 82; -fx-min-height: 82; -fx-pref-height: 82;
+                                              -fx-background-color: #ffffff; -fx-border-color: #d9b86f;
+                                              -fx-border-radius: 14; -fx-background-radius: 14;">
+                                <Pane fx:id="dieTwoValue" pickOnBounds="false"/>
+                            </StackPane>
+                        </HBox>
+                    </VBox>
 
-    </AnchorPane>
+                    <Button fx:id="rollDiceBtn" styleClass="btn,btn-icon-dark" text="🎲 ROLL"
+                            onAction="#onRollDice" style="-fx-padding: 14 18; -fx-font-size: 13px;"/>
+                    <Button fx:id="endTurnBtn" styleClass="btn,btn-gold" text="END TURN  ▶" onAction="#onEndTurn"
+                            style="-fx-padding: 14 28; -fx-font-size: 14px;"/>
+                </HBox>
+            </HBox>
+        </StackPane>
+    </VBox>
 
     <Pane fx:id="frameLayer" pickOnBounds="false" mouseTransparent="true"/>
 </StackPane>
