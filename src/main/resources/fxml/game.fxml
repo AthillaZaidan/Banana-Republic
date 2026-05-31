@@ -43,6 +43,7 @@
                       AnchorPane.leftAnchor="40" AnchorPane.topAnchor="120">
                     <VBox spacing="10" alignment="CENTER" styleClass="left-toolbox__icons">
                         <Button fx:id="scoreboardBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Scoreboard"
+                                contentDisplay="GRAPHIC_ONLY"
                                 onAction="#onScoreboard">
                             <graphic>
                                 <StackPane styleClass="sidebar-glyph-wrap">
@@ -51,6 +52,7 @@
                             </graphic>
                         </Button>
                         <Button fx:id="tradeBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Trade"
+                                contentDisplay="GRAPHIC_ONLY"
                                 onAction="#onTrade">
                             <graphic>
                                 <StackPane styleClass="sidebar-glyph-wrap">
@@ -59,6 +61,7 @@
                             </graphic>
                         </Button>
                         <Button fx:id="cardsBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Cards"
+                                contentDisplay="GRAPHIC_ONLY"
                                 onAction="#onCards">
                             <graphic>
                                 <StackPane styleClass="sidebar-glyph-wrap">
@@ -68,6 +71,7 @@
                             </graphic>
                         </Button>
                         <Button fx:id="buildCostsBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Build Costs"
+                                contentDisplay="GRAPHIC_ONLY"
                                 onAction="#onBuildCosts">
                             <graphic>
                                 <StackPane styleClass="sidebar-glyph-wrap">
@@ -77,6 +81,7 @@
                             </graphic>
                         </Button>
                         <Button fx:id="settingsBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Settings"
+                                contentDisplay="GRAPHIC_ONLY"
                                 onAction="#onSettings">
                             <graphic>
                                 <StackPane styleClass="sidebar-glyph-wrap">
@@ -90,6 +95,7 @@
                     <VBox spacing="8" fillWidth="true" styleClass="left-toolbox__actions">
                         <StackPane fx:id="buildPostHintZone" maxWidth="1.7976931348623157E308">
                             <Button fx:id="buildPostBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    contentDisplay="GRAPHIC_ONLY"
                                     text="" accessibleText="Build Post" onAction="#onBuildPost">
                                 <graphic>
                                     <StackPane styleClass="sidebar-glyph-wrap">
@@ -100,6 +106,7 @@
                         </StackPane>
                         <StackPane fx:id="buildPipeHintZone" maxWidth="1.7976931348623157E308">
                             <Button fx:id="buildPipeBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    contentDisplay="GRAPHIC_ONLY"
                                     text="" accessibleText="Build Pipe" onAction="#onBuildPipe">
                                 <graphic>
                                     <StackPane styleClass="sidebar-glyph-wrap">
@@ -110,6 +117,7 @@
                         </StackPane>
                         <StackPane fx:id="upgradeLabHintZone" maxWidth="1.7976931348623157E308">
                             <Button fx:id="upgradeLabBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    contentDisplay="GRAPHIC_ONLY"
                                     text="" accessibleText="Upgrade Lab" onAction="#onUpgradeLab">
                                 <graphic>
                                     <StackPane styleClass="sidebar-glyph-wrap">
@@ -121,6 +129,7 @@
                         </StackPane>
                         <StackPane fx:id="resolveNimonHintZone" maxWidth="1.7976931348623157E308">
                             <Button fx:id="resolveNimonBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    contentDisplay="GRAPHIC_ONLY"
                                     text="" accessibleText="Move Nimon" onAction="#onResolveNimon">
                                 <graphic>
                                     <StackPane styleClass="sidebar-glyph-wrap">

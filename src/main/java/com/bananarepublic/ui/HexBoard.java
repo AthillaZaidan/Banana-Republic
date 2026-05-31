@@ -40,9 +40,11 @@ import java.util.Map;
 public final class HexBoard extends Pane {
     public record PathSegment(Point2D start, Point2D end) {}
 
+    private static final Image BOARD_BACKGROUND = loadImage("/images/board/tiles/SAND.png");
     private static final double HEX_SIZE = 72;
     private static final double HEX_WIDTH = Math.sqrt(3.0) * HEX_SIZE;
     private static final double HEX_HEIGHT = HEX_SIZE * 2.0;
+    private static final double SHORE_OUTSET = 18;
     private static final double PIPE_INSET = 10;
     private static final double HARBOR_SIGN_DISTANCE = 98;
     private static final double HARBOR_DOCK_LENGTH = 38;
@@ -78,7 +80,7 @@ public final class HexBoard extends Pane {
         String robberTileId = state != null ? state.getNimonTileId() : findDefaultRobberTile(board);
 
         layoutGeometry(board);
-        drawBackdrop();
+        drawBackdrop(board);
         drawTiles(board, robberTileId);
         drawHarbors(board);
         drawPipes(board);
@@ -138,8 +140,45 @@ public final class HexBoard extends Pane {
         );
     }
 
-    private void drawBackdrop() {
-        // Keep the board transparent so it sits directly on top of the game scene background.
+    private void drawBackdrop(Board board) {
+        List<Point2D> shoreline = board.getIntersections().stream()
+                .filter(this::isCoastalIntersection)
+                .map(intersection -> intersectionPoints.get(intersection.getId()))
+                .filter(point -> point != null)
+                .sorted(Comparator.comparingDouble(this::polarAngle))
+                .map(this::pushOutwardFromCenter)
+                .toList();
+        if (shoreline.size() < 3) {
+            return;
+        }
+
+        Polygon backdrop = new Polygon();
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        for (Point2D point : shoreline) {
+            backdrop.getPoints().addAll(point.getX(), point.getY());
+            minX = Math.min(minX, point.getX());
+            minY = Math.min(minY, point.getY());
+            maxX = Math.max(maxX, point.getX());
+            maxY = Math.max(maxY, point.getY());
+        }
+
+        if (BOARD_BACKGROUND != null) {
+            backdrop.setFill(new ImagePattern(
+                    BOARD_BACKGROUND,
+                    minX,
+                    minY,
+                    Math.max(1, maxX - minX),
+                    Math.max(1, maxY - minY),
+                    false
+            ));
+        } else {
+            backdrop.setFill(Color.web("#d7bb7b"));
+        }
+        backdrop.setOpacity(0.92);
+        getChildren().add(backdrop);
     }
 
     private void drawTiles(Board board, String robberTileId) {
@@ -541,6 +580,24 @@ public final class HexBoard extends Pane {
 
     private Point2D boardCenter() {
         return new Point2D(boardWidth / 2.0, boardHeight / 2.0);
+    }
+
+    private boolean isCoastalIntersection(Intersection intersection) {
+        return intersection.getConnectedPaths().stream().anyMatch(Path::isCoastalPath);
+    }
+
+    private double polarAngle(Point2D point) {
+        Point2D center = boardCenter();
+        return Math.atan2(point.getY() - center.getY(), point.getX() - center.getX());
+    }
+
+    private Point2D pushOutwardFromCenter(Point2D point) {
+        Point2D center = boardCenter();
+        Point2D vector = point.subtract(center);
+        if (vector.magnitude() == 0) {
+            return point;
+        }
+        return point.add(vector.normalize().multiply(SHORE_OUTSET));
     }
 
     private Point2D insetPoint(Point2D anchor, Point2D other, double inset) {

@@ -890,15 +890,11 @@ public class GameController {
         endTurnBtn.setDisable(phase != TurnPhase.TRADE_BUILD);
 
         if (phase == TurnPhase.SETUP) {
-            buildPostBtn.setText("SETUP POST");
-            buildPipeBtn.setText("SETUP PIPE");
             buildPostBtn.setDisable(waitingForSetupPipe || GameSession.engine().getValidSetupPostIds(playerId).isEmpty());
             buildPipeBtn.setDisable(!waitingForSetupPipe || GameSession.engine().getValidSetupRoadIds(playerId).isEmpty());
             return;
         }
 
-        buildPostBtn.setText("BUILD POST");
-        buildPipeBtn.setText("BUILD PIPE");
         if (phase == TurnPhase.TRADE_BUILD) {
             buildPostBtn.setDisable(GameSession.engine().getValidMonitoringPostIds(playerId).isEmpty());
             buildPipeBtn.setDisable(GameSession.engine().getValidRoadIds(playerId).isEmpty());
