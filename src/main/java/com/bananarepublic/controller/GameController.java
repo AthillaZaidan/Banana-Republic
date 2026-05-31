@@ -21,12 +21,18 @@ import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
+import javafx.scene.input.ZoomEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.transform.Scale;
+import javafx.scene.transform.Translate;
 import javafx.util.Duration;
 
 import java.util.List;
@@ -45,11 +51,41 @@ public class GameController {
     private int remainingSeconds = 90;
     private Timeline timer;
 
+    private static final double BOARD_DESIGN_W = 900;
+    private static final double BOARD_DESIGN_H = 780;
+    private static final double BOARD_MIN_SCALE = 0.25;
+    private static final double BOARD_MAX_SCALE = 3.0;
+    private static final double ZOOM_FACTOR = 1.10;
+
+    private HexBoard board;
+    private Group boardCanvas;
+    private final Translate canvasTranslate = new Translate();
+    private final Scale canvasScale = new Scale(1, 1, 0, 0);
+    private double dragStartX, dragStartY;
+    private double translateStartX, translateStartY;
+
     @FXML
     public void initialize() {
         GameSession.setGameController(this);
         LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
-        boardHolder.getChildren().add(new HexBoard(720, 600));
+        board = new HexBoard(BOARD_DESIGN_W, BOARD_DESIGN_H);
+        boardCanvas = new Group(board);
+        boardCanvas.getTransforms().addAll(canvasTranslate, canvasScale);
+
+        Pane canvasPane = new Pane(boardCanvas);
+        canvasPane.setStyle("-fx-background-color: transparent;");
+        boardHolder.getChildren().add(canvasPane);
+        canvasPane.prefWidthProperty().bind(boardHolder.widthProperty());
+        canvasPane.prefHeightProperty().bind(boardHolder.heightProperty());
+
+        boardHolder.widthProperty().addListener((o, ov, nv) -> fitBoard());
+        boardHolder.heightProperty().addListener((o, ov, nv) -> fitBoard());
+
+        canvasPane.setOnScroll(this::onCanvasScroll);
+        canvasPane.setOnZoom(this::onCanvasZoom);
+        canvasPane.setOnMousePressed(this::onCanvasDragStart);
+        canvasPane.setOnMouseDragged(this::onCanvasDragged);
+        canvasPane.setCursor(javafx.scene.Cursor.DEFAULT);
         if (GameSession.hasEngine()) {
             installFromEngine();
             remainingSeconds = Math.max(0, GameSession.engine().getState().getTurnState().getRemainingSeconds());
@@ -267,6 +303,62 @@ public class GameController {
             }
             logbook.getChildren().add(row);
             i++;
+        }
+    }
+
+    private void fitBoard() {
+        if (board == null) return;
+        double availW = boardHolder.getWidth()
+            - boardHolder.getPadding().getLeft() - boardHolder.getPadding().getRight();
+        double availH = boardHolder.getHeight()
+            - boardHolder.getPadding().getTop() - boardHolder.getPadding().getBottom();
+        if (availW <= 0 || availH <= 0) return;
+        double scale = Math.min(availW / BOARD_DESIGN_W, availH / BOARD_DESIGN_H);
+        scale = Math.max(BOARD_MIN_SCALE, Math.min(scale, BOARD_MAX_SCALE));
+        canvasScale.setX(scale);
+        canvasScale.setY(scale);
+        canvasTranslate.setX((availW - BOARD_DESIGN_W * scale) / 2
+            + boardHolder.getPadding().getLeft());
+        canvasTranslate.setY((availH - BOARD_DESIGN_H * scale) / 2
+            + boardHolder.getPadding().getTop());
+    }
+
+    private void applyZoom(double factor, double pivotX, double pivotY) {
+        double oldScale = canvasScale.getX();
+        double newScale = Math.max(BOARD_MIN_SCALE, Math.min(oldScale * factor, BOARD_MAX_SCALE));
+        double ratio = newScale / oldScale;
+        canvasTranslate.setX(pivotX - ratio * (pivotX - canvasTranslate.getX()));
+        canvasTranslate.setY(pivotY - ratio * (pivotY - canvasTranslate.getY()));
+        canvasScale.setX(newScale);
+        canvasScale.setY(newScale);
+    }
+
+    private void onCanvasScroll(ScrollEvent e) {
+        if (e.getTouchCount() > 0) return; // handled by onCanvasZoom (trackpad pinch)
+        double factor = e.getDeltaY() > 0 ? ZOOM_FACTOR : 1.0 / ZOOM_FACTOR;
+        applyZoom(factor, e.getX(), e.getY());
+        e.consume();
+    }
+
+    private void onCanvasZoom(ZoomEvent e) {
+        applyZoom(e.getZoomFactor(), e.getX(), e.getY());
+        e.consume();
+    }
+
+    private void onCanvasDragStart(MouseEvent e) {
+        if (e.getButton() == MouseButton.PRIMARY || e.getButton() == MouseButton.MIDDLE) {
+            dragStartX = e.getSceneX();
+            dragStartY = e.getSceneY();
+            translateStartX = canvasTranslate.getX();
+            translateStartY = canvasTranslate.getY();
+            ((Pane) e.getSource()).setCursor(javafx.scene.Cursor.CLOSED_HAND);
+        }
+    }
+
+    private void onCanvasDragged(MouseEvent e) {
+        if (e.getButton() == MouseButton.PRIMARY || e.getButton() == MouseButton.MIDDLE) {
+            canvasTranslate.setX(translateStartX + (e.getSceneX() - dragStartX));
+            canvasTranslate.setY(translateStartY + (e.getSceneY() - dragStartY));
         }
     }
 
