@@ -5,6 +5,7 @@ import com.bananarepublic.model.player.Player;
 import com.bananarepublic.service.victory.VictoryService;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -67,11 +68,13 @@ public class GameResultController {
 
     @FXML
     private void onViewBoard() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.goTo("/fxml/game.fxml");
     }
 
     @FXML
     private void onMainMenu() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.goTo("/fxml/main_menu.fxml");
     }
 

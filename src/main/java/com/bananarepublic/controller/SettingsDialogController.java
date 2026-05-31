@@ -51,6 +51,7 @@ public class SettingsDialogController {
 
     @FXML
     private void onSaveState() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         if (!GameSession.hasEngine()) {
             showAlert("Error", "Tidak ada permainan aktif untuk disimpan.");
             return;
@@ -74,6 +75,7 @@ public class SettingsDialogController {
 
     @FXML
     private void onBrowsePlugin() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Load Card Plugin");
         chooser.getExtensionFilters().add(
@@ -104,6 +106,7 @@ public class SettingsDialogController {
 
     @FXML
     private void onApply() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         LivingBackground.setAnimationsEnabled(animatedBgToggle.isSelected());
         System.out.println("[Settings] apply (animations="
             + animatedBgToggle.isSelected() + ")");
@@ -111,7 +114,7 @@ public class SettingsDialogController {
     }
 
     @FXML
-    private void onClose() { close(); }
+    private void onClose() { AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK); close(); }
 
     private void close() {
         Navigator.closeOverlay(root);

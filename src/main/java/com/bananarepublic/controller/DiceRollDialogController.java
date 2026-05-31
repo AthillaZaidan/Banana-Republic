@@ -6,6 +6,7 @@ import com.bananarepublic.ui.DiceDialogRequest;
 import com.bananarepublic.ui.DiceDialogResult;
 import com.bananarepublic.ui.DicePips;
 import com.bananarepublic.ui.GameSession;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -61,6 +62,7 @@ public class DiceRollDialogController {
 
     @FXML
     private void onSelectRandom() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         manualMode = false;
         applyModeStyles();
     }
@@ -70,12 +72,14 @@ public class DiceRollDialogController {
         if (!request.manualEnabled()) {
             return;
         }
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         manualMode = true;
         applyModeStyles();
     }
 
     @FXML
     private void onConfirm() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         DiceDialogResult result = manualMode
                 ? new DiceDialogResult(DiceMode.MANUAL, DiceRoll.of(firstDieValue, secondDieValue))
                 : new DiceDialogResult(DiceMode.RANDOM, null);
@@ -84,6 +88,7 @@ public class DiceRollDialogController {
 
     @FXML
     private void onClose() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         closeWithResult(null);
     }
 
@@ -100,6 +105,7 @@ public class DiceRollDialogController {
             button.setGraphic(DicePips.createGraphic(value, 50));
             int chosenValue = value;
             button.setOnAction(event -> {
+                AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
                 if (firstDie) {
                     firstDieValue = chosenValue;
                 } else {

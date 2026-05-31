@@ -1,8 +1,8 @@
 package com.bananarepublic.ui;
 
+import javafx.application.Platform;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
-import javafx.util.Duration;
 
 import java.net.URL;
 
@@ -30,7 +30,7 @@ public final class AudioEngine {
     public static AudioEngine get() { return INSTANCE; }
 
     private MediaPlayer bgmPlayer;
-    private boolean gameBgmToggle = false; // alternates game_1 / game_2
+    private boolean gameBgmToggle = false;
     private double bgmVolume = 0.45;
     private double sfxVolume = 0.80;
     private boolean muted = false;
@@ -40,39 +40,50 @@ public final class AudioEngine {
     // ── BGM ──────────────────────────────────────────────────────────────────
 
     public void playMenuBgm() {
-        switchBgm(BGM_MENU, true);
+        runOnFx(() -> switchBgm(BGM_MENU, true));
     }
 
     public void playGameBgm() {
-        gameBgmToggle = false;
-        switchBgm(BGM_GAME_1, false);
+        runOnFx(() -> {
+            gameBgmToggle = false;
+            switchBgm(BGM_GAME_1, false);
+        });
     }
 
     public void stopBgm() {
+        runOnFx(() -> {
+            if (bgmPlayer != null) {
+                bgmPlayer.stop();
+                bgmPlayer.dispose();
+                bgmPlayer = null;
+            }
+        });
+    }
+
+    private void switchBgm(String resource, boolean loop) {
+        // Must run on FX thread
         if (bgmPlayer != null) {
             bgmPlayer.stop();
             bgmPlayer.dispose();
             bgmPlayer = null;
         }
-    }
-
-    private void switchBgm(String resource, boolean loop) {
-        stopBgm();
         Media media = loadMedia(resource);
         if (media == null) return;
 
-        bgmPlayer = new MediaPlayer(media);
-        bgmPlayer.setVolume(muted ? 0 : bgmVolume);
+        MediaPlayer player = new MediaPlayer(media);
+        player.setVolume(muted ? 0 : bgmVolume);
+        player.setOnError(() -> System.err.println(
+                "[AudioEngine] BGM error: " + player.getError()));
         if (loop) {
-            bgmPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            player.setCycleCount(MediaPlayer.INDEFINITE);
         } else {
-            bgmPlayer.setOnEndOfMedia(this::onGameTrackEnd);
+            player.setOnEndOfMedia(this::onGameTrackEnd);
         }
-        bgmPlayer.play();
+        bgmPlayer = player;
+        player.play();
     }
 
     private void onGameTrackEnd() {
-        // Alternate between game_1 and game_2 seamlessly
         gameBgmToggle = !gameBgmToggle;
         switchBgm(gameBgmToggle ? BGM_GAME_2 : BGM_GAME_1, false);
     }
@@ -81,21 +92,30 @@ public final class AudioEngine {
 
     public void playSfx(Sfx sfx) {
         if (muted) return;
-        Media media = loadMedia(sfx.path);
-        if (media == null) return;
-        MediaPlayer player = new MediaPlayer(media);
-        player.setVolume(sfxVolume);
-        // Dispose after playback — fire and forget
-        player.setOnEndOfMedia(player::dispose);
-        player.setOnError(player::dispose);
-        player.play();
+        // Always create MediaPlayer on the FX thread
+        runOnFx(() -> {
+            Media media = loadMedia(sfx.path);
+            if (media == null) {
+                System.err.println("[AudioEngine] SFX not found: " + sfx.path);
+                return;
+            }
+            MediaPlayer player = new MediaPlayer(media);
+            player.setVolume(sfxVolume);
+            player.setOnError(() -> System.err.println(
+                    "[AudioEngine] SFX error (" + sfx.path + "): " + player.getError()));
+            // Fire-and-forget: dispose when done
+            player.setOnEndOfMedia(() -> runOnFx(player::dispose));
+            player.play();
+        });
     }
 
     // ── Volume / Mute ─────────────────────────────────────────────────────────
 
     public void setBgmVolume(double v) {
         bgmVolume = clamp(v);
-        if (bgmPlayer != null && !muted) bgmPlayer.setVolume(bgmVolume);
+        runOnFx(() -> {
+            if (bgmPlayer != null && !muted) bgmPlayer.setVolume(bgmVolume);
+        });
     }
 
     public void setSfxVolume(double v) {
@@ -104,21 +124,35 @@ public final class AudioEngine {
 
     public void setMuted(boolean m) {
         muted = m;
-        if (bgmPlayer != null) bgmPlayer.setVolume(muted ? 0 : bgmVolume);
+        runOnFx(() -> {
+            if (bgmPlayer != null) bgmPlayer.setVolume(muted ? 0 : bgmVolume);
+        });
     }
 
-    public boolean isMuted() { return muted; }
-    public double getBgmVolume() { return bgmVolume; }
-    public double getSfxVolume() { return sfxVolume; }
+    public boolean isMuted()       { return muted; }
+    public double getBgmVolume()   { return bgmVolume; }
+    public double getSfxVolume()   { return sfxVolume; }
 
     // ── Util ──────────────────────────────────────────────────────────────────
 
+    private static void runOnFx(Runnable r) {
+        if (Platform.isFxApplicationThread()) {
+            r.run();
+        } else {
+            Platform.runLater(r);
+        }
+    }
+
     private static Media loadMedia(String resource) {
         URL url = AudioEngine.class.getResource(resource);
-        if (url == null) return null;
+        if (url == null) {
+            System.err.println("[AudioEngine] Resource not found: " + resource);
+            return null;
+        }
         try {
             return new Media(url.toExternalForm());
         } catch (Exception e) {
+            System.err.println("[AudioEngine] Failed to load media: " + resource + " — " + e.getMessage());
             return null;
         }
     }

@@ -90,6 +90,10 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.bananarepublic.App</mainClass>
+                    <options>
+                        <option>--add-modules</option>
+                        <option>javafx.controls,javafx.fxml,javafx.media</option>
+                    </options>
                 </configuration>
             </plugin>
 

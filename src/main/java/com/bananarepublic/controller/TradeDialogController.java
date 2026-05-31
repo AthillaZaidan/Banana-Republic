@@ -108,12 +108,13 @@ public class TradeDialogController {
         Label name = new Label(player.getName());
         name.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
         chip.getChildren().addAll(initial, name);
-        chip.setOnMouseClicked(e -> selectTarget(chip, player));
+        chip.setOnMouseClicked(e -> { AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK); selectTarget(chip, player); });
         return chip;
     }
 
     @FXML
     private void onSelectDomestic() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         maritimeMode = false;
         tabDomestic.getStyleClass().setAll("tab", "is-active");
         tabMaritime.getStyleClass().setAll("tab");
@@ -126,6 +127,7 @@ public class TradeDialogController {
 
     @FXML
     private void onSelectMaritime() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         maritimeMode = true;
         tabMaritime.getStyleClass().setAll("tab", "is-active");
         tabDomestic.getStyleClass().setAll("tab");
@@ -191,6 +193,7 @@ public class TradeDialogController {
 
     @FXML
     private void onClose() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         close();
     }
 

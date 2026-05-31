@@ -5,6 +5,7 @@ import com.bananarepublic.engine.GameConfig;
 import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.engine.PlayerConfig;
 import com.bananarepublic.model.player.PlayerColor;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
@@ -81,8 +82,10 @@ public class LobbyController {
 
     private void selectColor(PlayerRow row, String color) {
         if (selectedColorOwner.containsKey(color) && selectedColorOwner.get(color) != row) {
+            AudioEngine.get().playSfx(AudioEngine.Sfx.ERROR);
             return;
         }
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         selectedColorOwner.remove(row.selectedColor);
         row.selectedColor = color;
         selectedColorOwner.put(color, row);
@@ -91,12 +94,13 @@ public class LobbyController {
 
     @FXML
     private void onBack() {
-        System.out.println("[Lobby] back to main menu");
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.goTo("/fxml/main_menu.fxml");
     }
 
     @FXML
     private void onBrowseMapPlugin() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         File f = pickJar("Select Map Plugin");
         if (f != null) {
             mapPluginLabel.setText(f.getName());
@@ -105,6 +109,7 @@ public class LobbyController {
 
     @FXML
     private void onBrowseBotPlugin() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         File f = pickJar("Select Bot Plugin");
         if (f != null) {
             botPluginLabel.setText(f.getName());
@@ -121,6 +126,7 @@ public class LobbyController {
 
     @FXML
     private void onStartGame() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         java.util.List<PlayerConfig> configs = new java.util.ArrayList<>();
         for (PlayerRow row : rows) {
             String name = row.nameField.getText().isBlank() ? "Player " + row.index : row.nameField.getText();

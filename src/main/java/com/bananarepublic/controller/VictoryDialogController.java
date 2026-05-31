@@ -6,6 +6,7 @@ import com.bananarepublic.model.card.VictoryPointCard;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.player.SpecialCardType;
 import com.bananarepublic.ui.GameSession;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
@@ -125,12 +126,14 @@ public class VictoryDialogController {
 
     @FXML
     private void onConfirm() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.closeOverlay(root);
         Navigator.goTo("/fxml/game_result.fxml");
     }
 
     @FXML
     private void onClose() {
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         close();
     }
 

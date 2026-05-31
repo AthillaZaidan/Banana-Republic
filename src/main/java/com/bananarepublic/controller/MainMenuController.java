@@ -30,7 +30,7 @@ public class MainMenuController {
 
     @FXML
     private void onLoadGame() {
-        System.out.println("[MainMenu] LOAD GAME");
+        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Load Game");
         chooser.getExtensionFilters().add(
