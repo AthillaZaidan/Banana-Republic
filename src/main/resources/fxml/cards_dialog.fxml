@@ -30,7 +30,7 @@
         </VBox>
 
         <HBox styleClass="modal__footer">
-            <Button fx:id="buyBtn" styleClass="btn,btn-outline" text="BELI KARTU (1⛏+1🍌+1🌾)" onAction="#onBuy"/>
+            <Button fx:id="buyBtn" styleClass="btn,btn-outline,card-buy-btn" text="BELI KARTU" onAction="#onBuy"/>
             <Button styleClass="btn,btn-outline" text="TUTUP" onAction="#onClose"/>
             <Button styleClass="btn,btn-gold"    text="▸ MAINKAN KARTU TERPILIH"
                     onAction="#onPlay"/>

@@ -6,12 +6,9 @@ import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.engine.PlayerConfig;
 import com.bananarepublic.model.board.Board;
 import com.bananarepublic.model.player.PlayerColor;
-<<<<<<< HEAD
 import com.bananarepublic.plugin.MapPluginLoader;
 import com.bananarepublic.plugin.PluginLoadException;
-=======
 import com.bananarepublic.ui.AudioEngine;
->>>>>>> dev
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
@@ -92,12 +89,22 @@ public class LobbyController {
     }
 
     private void selectColor(PlayerRow row, String color) {
-        if (selectedColorOwner.containsKey(color) && selectedColorOwner.get(color) != row) {
-            AudioEngine.get().playSfx(AudioEngine.Sfx.ERROR);
+        PlayerRow currentOwner = selectedColorOwner.get(color);
+        if (currentOwner == row) {
+            AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
             return;
         }
+
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
-        selectedColorOwner.remove(row.selectedColor);
+        String previousColor = row.selectedColor;
+
+        if (currentOwner != null) {
+            currentOwner.selectedColor = previousColor;
+            selectedColorOwner.put(previousColor, currentOwner);
+        } else {
+            selectedColorOwner.remove(previousColor);
+        }
+
         row.selectedColor = color;
         selectedColorOwner.put(color, row);
         refreshSwatchStates();

@@ -110,7 +110,7 @@ public class StandardBoardFactory implements BoardFactory {
             }
         }
 
-        attachStandardHarbors(paths, harbors);
+        attachStandardHarbors(paths, harbors, edgeRegistry);
 
         return new Board(tiles, intersections, paths, harbors);
     }
@@ -170,7 +170,8 @@ public class StandardBoardFactory implements BoardFactory {
 
     private void attachStandardHarbors(
             Map<String, Path> paths,
-            Map<String, Harbor> harbors
+            Map<String, Harbor> harbors,
+            Map<EdgeKey, Path> edgeRegistry
     ) {
         List<Path> coastalPaths = paths.values()
                 .stream()
@@ -181,7 +182,8 @@ public class StandardBoardFactory implements BoardFactory {
             throw new IllegalStateException("Standard board must have at least 9 coastal paths for harbors");
         }
 
-        List<Path> selectedPaths = selectDistributedCoastalPaths(coastalPaths, 9);
+        List<Path> orderedCoastalPaths = orderCoastalPathsClockwise(coastalPaths, edgeRegistry);
+        List<Path> selectedPaths = selectDistributedCoastalPaths(orderedCoastalPaths, 9);
 
         List<Harbor> standardHarbors = List.of(
                 new GenericHarbor("H1", selectedPaths.get(0)),
@@ -202,16 +204,60 @@ public class StandardBoardFactory implements BoardFactory {
     }
 
     private List<Path> selectDistributedCoastalPaths(List<Path> coastalPaths, int count) {
-        List<Path> selected = new ArrayList<>();
-
-        double step = (double) coastalPaths.size() / count;
-
-        for (int i = 0; i < count; i++) {
-            int index = (int) Math.floor(i * step);
-            selected.add(coastalPaths.get(index));
+        if (coastalPaths.size() < count * 2) {
+            throw new IllegalStateException("Not enough coastal spacing to place non-adjacent harbors");
         }
 
-        return selected;
+        int spacing = coastalPaths.size() / count;
+        for (int offset = 0; offset < spacing; offset++) {
+            List<Path> selected = new ArrayList<>();
+            for (int index = offset; index < coastalPaths.size() && selected.size() < count; index += spacing) {
+                Path candidate = coastalPaths.get(index);
+                if (selected.stream().noneMatch(path -> sharesIntersection(path, candidate))) {
+                    selected.add(candidate);
+                }
+            }
+
+            if (selected.size() == count && !sharesIntersection(selected.getFirst(), selected.getLast())) {
+                return selected;
+            }
+        }
+
+        throw new IllegalStateException("Failed to distribute harbors without shared intersections");
+    }
+
+    private List<Path> orderCoastalPathsClockwise(
+            List<Path> coastalPaths,
+            Map<EdgeKey, Path> edgeRegistry
+    ) {
+        Map<Path, EdgeKey> keyByPath = new HashMap<>();
+        for (Map.Entry<EdgeKey, Path> entry : edgeRegistry.entrySet()) {
+            keyByPath.put(entry.getValue(), entry.getKey());
+        }
+
+        return coastalPaths.stream()
+                .sorted((left, right) -> Double.compare(
+                        coastalAngle(keyByPath.get(left)),
+                        coastalAngle(keyByPath.get(right))
+                ))
+                .toList();
+    }
+
+    private double coastalAngle(EdgeKey edgeKey) {
+        if (edgeKey == null) {
+            return 0;
+        }
+
+        double midX = (unscale(edgeKey.a.x) + unscale(edgeKey.b.x)) / 2.0;
+        double midY = (unscale(edgeKey.a.y) + unscale(edgeKey.b.y)) / 2.0;
+        return Math.atan2(midY, midX);
+    }
+
+    private boolean sharesIntersection(Path first, Path second) {
+        return first.getEndpointA() == second.getEndpointA()
+                || first.getEndpointA() == second.getEndpointB()
+                || first.getEndpointB() == second.getEndpointA()
+                || first.getEndpointB() == second.getEndpointB();
     }
 
     private VertexKey createVertexKey(AxialCoordinate coordinate, int corner) {
@@ -228,6 +274,10 @@ public class StandardBoardFactory implements BoardFactory {
 
     private long scale(double value) {
         return round(value * SCALE);
+    }
+
+    private double unscale(long value) {
+        return (double) value / SCALE;
     }
 
     private static class AxialCoordinate {

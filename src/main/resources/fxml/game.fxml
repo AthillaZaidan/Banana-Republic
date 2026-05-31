@@ -10,6 +10,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
 
 <StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
            fx:controller="com.bananarepublic.controller.GameController"
@@ -38,33 +39,107 @@
                        AnchorPane.topAnchor="146" AnchorPane.leftAnchor="120"
                        text="Resource Gathering: roll dice."/>
 
-                <VBox spacing="10" AnchorPane.leftAnchor="40" AnchorPane.topAnchor="120"
-                      style="-fx-padding: 14; -fx-background-color: rgba(17,33,45,0.78);
-                             -fx-border-color: rgba(244,201,118,0.32); -fx-border-width: 1.2;
-                             -fx-background-radius: 14; -fx-border-radius: 14;">
-                    <Button styleClass="btn,btn-icon,btn-icon-teal" text="📊" onAction="#onScoreboard"/>
-                    <Button styleClass="btn,btn-icon"             text="🔁" onAction="#onTrade"/>
-                    <Button styleClass="btn,btn-icon,btn-icon-teal" text="🃏" onAction="#onCards"/>
-                    <Button styleClass="btn,btn-icon,btn-icon-teal" text="🧾" onAction="#onBuildCosts"/>
-                    <Button styleClass="btn,btn-icon"             text="⚙"  onAction="#onSettings"/>
-                    <VBox spacing="8">
-                        <Button fx:id="buildPostBtn" styleClass="btn,btn-outline" text="BUILD POST"
-                                onAction="#onBuildPost" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
-                        <Button fx:id="buildPipeBtn" styleClass="btn,btn-outline" text="BUILD PIPE"
-                                onAction="#onBuildPipe" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
-                        <Button fx:id="upgradeLabBtn" styleClass="btn,btn-outline" text="UPGRADE LAB"
-                                onAction="#onUpgradeLab" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
-                        <Button fx:id="resolveNimonBtn" styleClass="btn,btn-outline" text="MOVE NIMON"
-                                onAction="#onResolveNimon" style="-fx-padding: 10 14; -fx-font-size: 11px;"/>
+                <VBox fx:id="leftToolbox" spacing="12" styleClass="left-toolbox"
+                      AnchorPane.leftAnchor="40" AnchorPane.topAnchor="120">
+                    <VBox spacing="10" alignment="CENTER" styleClass="left-toolbox__icons">
+                        <Button fx:id="scoreboardBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Scoreboard"
+                                onAction="#onScoreboard">
+                            <graphic>
+                                <StackPane styleClass="sidebar-glyph-wrap">
+                                    <SVGPath styleClass="sidebar-glyph-svg" content="M3 27 H8 V15 H12 V27 H17 V7 H21 V27 H26 V11 H30 V30 H3 Z"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="tradeBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Trade"
+                                onAction="#onTrade">
+                            <graphic>
+                                <StackPane styleClass="sidebar-glyph-wrap">
+                                    <SVGPath styleClass="sidebar-glyph-svg" content="M4 10 H18 V5 L29 15 L18 25 V20 H4 Z M27 20 H13 V15 L2 25 L13 35 V30 H27 Z"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="cardsBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Cards"
+                                onAction="#onCards">
+                            <graphic>
+                                <StackPane styleClass="sidebar-glyph-wrap">
+                                    <SVGPath styleClass="sidebar-glyph-svg,sidebar-glyph-card-back" content="M7 8 H23 C25 8 26 9 26 11 V27 C26 29 25 30 23 30 H7 C5 30 4 29 4 27 V11 C4 9 5 8 7 8 Z"/>
+                                    <SVGPath styleClass="sidebar-glyph-svg,sidebar-glyph-card-front" content="M12 4 H28 C30 4 31 5 31 7 V23 C31 25 30 26 28 26 H12 C10 26 9 25 9 23 V7 C9 5 10 4 12 4 Z"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="buildCostsBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Build Costs"
+                                onAction="#onBuildCosts">
+                            <graphic>
+                                <StackPane styleClass="sidebar-glyph-wrap">
+                                    <SVGPath styleClass="sidebar-glyph-svg" content="M8 4 H23 L31 12 V32 H8 Z M22 4 V13 H31 Z"/>
+                                    <SVGPath styleClass="sidebar-glyph-svg-line" content="M13 16 H25 V18 H13 Z M13 21 H25 V23 H13 Z M13 26 H22 V28 H13 Z"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="settingsBtn" styleClass="btn,btn-icon,sidebar-icon-btn" text="" accessibleText="Settings"
+                                onAction="#onSettings">
+                            <graphic>
+                                <StackPane styleClass="sidebar-glyph-wrap">
+                                    <SVGPath styleClass="sidebar-glyph-svg" content="M18 3 L22 3 L23.5 7 L27 8.5 L30 6 L33 9 L30.5 12.5 L32 16 L36 18 L36 22 L32 24 L30.5 27.5 L33 31 L30 34 L27 31.5 L23.5 33 L22 37 L18 37 L16.5 33 L13 31.5 L10 34 L7 31 L9.5 27.5 L8 24 L4 22 L4 18 L8 16 L9.5 12.5 L7 9 L10 6 L13 8.5 L16.5 7 Z"/>
+                                    <Region styleClass="sidebar-glyph-core"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                    </VBox>
+                    <Region styleClass="left-toolbox__divider"/>
+                    <VBox spacing="8" fillWidth="true" styleClass="left-toolbox__actions">
+                        <StackPane fx:id="buildPostHintZone" maxWidth="1.7976931348623157E308">
+                            <Button fx:id="buildPostBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    text="" accessibleText="Build Post" onAction="#onBuildPost">
+                                <graphic>
+                                    <StackPane styleClass="sidebar-glyph-wrap">
+                                        <SVGPath styleClass="sidebar-glyph-svg" content="M8 30 V17 L18 8 L28 17 V30 H21 V23 H15 V30 Z"/>
+                                    </StackPane>
+                                </graphic>
+                            </Button>
+                        </StackPane>
+                        <StackPane fx:id="buildPipeHintZone" maxWidth="1.7976931348623157E308">
+                            <Button fx:id="buildPipeBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    text="" accessibleText="Build Pipe" onAction="#onBuildPipe">
+                                <graphic>
+                                    <StackPane styleClass="sidebar-glyph-wrap">
+                                        <SVGPath styleClass="sidebar-glyph-svg" content="M6 27 L12 21 L18 27 L12 33 Z M17 16 L23 10 L29 16 L23 22 Z M20 23 L26 17 L32 23 L26 29 Z"/>
+                                    </StackPane>
+                                </graphic>
+                            </Button>
+                        </StackPane>
+                        <StackPane fx:id="upgradeLabHintZone" maxWidth="1.7976931348623157E308">
+                            <Button fx:id="upgradeLabBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    text="" accessibleText="Upgrade Lab" onAction="#onUpgradeLab">
+                                <graphic>
+                                    <StackPane styleClass="sidebar-glyph-wrap">
+                                        <SVGPath styleClass="sidebar-glyph-svg" content="M10 8 H22 V11 L19 16 V28 C19 31 16 33 13 33 C10 33 7 31 7 28 V16 L10 11 Z"/>
+                                        <SVGPath styleClass="sidebar-glyph-svg-line" content="M24 25 V12 H20 L27 4 L34 12 H30 V25 Z"/>
+                                    </StackPane>
+                                </graphic>
+                            </Button>
+                        </StackPane>
+                        <StackPane fx:id="resolveNimonHintZone" maxWidth="1.7976931348623157E308">
+                            <Button fx:id="resolveNimonBtn" styleClass="btn,btn-icon,sidebar-icon-btn,sidebar-icon-btn-build"
+                                    text="" accessibleText="Move Nimon" onAction="#onResolveNimon">
+                                <graphic>
+                                    <StackPane styleClass="sidebar-glyph-wrap">
+                                        <Region styleClass="sidebar-glyph-nimon-disc"/>
+                                        <Label styleClass="sidebar-glyph-nimon-label" text="N"/>
+                                    </StackPane>
+                                </graphic>
+                            </Button>
+                        </StackPane>
                     </VBox>
                 </VBox>
+
+                <StackPane fx:id="sidebarHoverPopup" styleClass="sidebar-hover-card"
+                           managed="false" visible="false" mouseTransparent="true" pickOnBounds="false"/>
 
                 <VBox fx:id="rightSidebar" spacing="10"
                       AnchorPane.topAnchor="36" AnchorPane.rightAnchor="40"
                       AnchorPane.bottomAnchor="24"
                       prefWidth="260">
-                    <Label styleClass="plaque" text="NIMON TEAM"/>
-                    <VBox fx:id="teamList" spacing="10"/>
                     <Label styleClass="plaque" text="LOGBOOK">
                         <VBox.margin><Insets top="6"/></VBox.margin>
                     </Label>
@@ -74,6 +149,10 @@
                             <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
                         </VBox>
                     </ScrollPane>
+                    <Label styleClass="plaque" text="NIMON TEAM">
+                        <VBox.margin><Insets top="6"/></VBox.margin>
+                    </Label>
+                    <VBox fx:id="teamList" spacing="10"/>
                 </VBox>
             </AnchorPane>
         </StackPane>

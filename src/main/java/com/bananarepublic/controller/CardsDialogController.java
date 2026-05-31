@@ -9,13 +9,18 @@ import com.bananarepublic.model.card.MonopolyCard;
 import com.bananarepublic.model.card.RoadBuildingCard;
 import com.bananarepublic.model.card.VictoryPointCard;
 import com.bananarepublic.model.player.Player;
+import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.plugin.PluginExperimentCardAdapter;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.Navigator;
+import com.bananarepublic.ui.ResourceIcons;
+import com.bananarepublic.service.build.BuildActionType;
+import com.bananarepublic.service.build.BuildCostProvider;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.Group;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceDialog;
@@ -40,9 +45,15 @@ public class CardsDialogController {
     private VBox selectedCardBox;
     private DevelopmentCard selectedCard;
     private final java.util.Map<VBox, DevelopmentCard> cardMap = new java.util.HashMap<>();
+    private final BuildCostProvider buildCostProvider = new BuildCostProvider();
 
     @FXML
     public void initialize() {
+        if (buyBtn != null) {
+            buyBtn.setGraphic(createBuyButtonGraphic());
+            buyBtn.setContentDisplay(javafx.scene.control.ContentDisplay.RIGHT);
+            buyBtn.setGraphicTextGap(10);
+        }
         refreshCards();
     }
 
@@ -190,11 +201,8 @@ public class CardsDialogController {
                     logEvent(active.getName() + " memainkan kartu eksperimen: " + plugin.getName());
                 }
                 case KnightCard k -> {
-                    String tileId = promptTileSelection(engine.getState());
-                    if (tileId == null) return;
-                    String victimId = promptVictimSelection(engine.getState(), tileId);
-                    engine.playDevelopmentCard(playerId, cardId, tileId, victimId);
-                    logEvent(active.getName() + " memainkan Kartu Penjaga.");
+                    beginKnightPlacement(engine, active, cardId);
+                    return;
                 }
                 case MonopolyCard m -> {
                     ResourceType target = promptResourceSelection();
@@ -203,13 +211,8 @@ public class CardsDialogController {
                     logEvent(active.getName() + " memainkan Monopoli Nimon (target: " + target + ").");
                 }
                 case RoadBuildingCard r -> {
-                    List<String> pathIds = promptRoadBuildingPaths(engine.getState(), active);
-                    if (pathIds.isEmpty()) {
-                        showAlert("Gagal", "Tidak ada jalur yang bisa dibangun.");
-                        return;
-                    }
-                    engine.playDevelopmentCard(playerId, cardId, pathIds);
-                    logEvent(active.getName() + " memainkan Konstruksi Cepat (" + pathIds.size() + " pipa).");
+                    beginRoadBuildingPlacement(engine, active, cardId);
+                    return;
                 }
                 default -> {
                     showAlert("Error", "Tipe kartu tidak dikenal.");
@@ -251,17 +254,44 @@ public class CardsDialogController {
         }
     }
 
-    private String promptTileSelection(GameState state) {
-        List<HexTile> tiles = state.getBoard().getTiles().stream()
-                .filter(t -> !t.getId().equals(state.getNimonTileId()))
+    private void beginKnightPlacement(GameEngine engine, Player active, String cardId) {
+        GameController gameController = GameSession.getGameController();
+        if (gameController == null) {
+            showAlert("Error", "Board controller tidak tersedia.");
+            return;
+        }
+
+        List<String> tileIds = engine.getState().getBoard().getTiles().stream()
+                .filter(tile -> !tile.getId().equals(engine.getState().getNimonTileId()))
+                .map(HexTile::getId)
                 .toList();
-        List<String> tileIds = tiles.stream().map(HexTile::getId).toList();
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(tileIds.get(0), tileIds);
-        dialog.setTitle("Pindahkan Nimon Ungu");
-        dialog.setHeaderText("Pilih petak tujuan Nimon Ungu");
-        dialog.setContentText("Petak:");
-        Optional<String> result = dialog.showAndWait();
-        return result.orElse(null);
+        if (tileIds.isEmpty()) {
+            showAlert("Gagal", "Tidak ada petak tujuan yang valid.");
+            return;
+        }
+
+        close();
+        gameController.beginTileSelection(
+                "Click a highlighted tile to move Nimon Ungu with the Knight card.",
+                tileIds,
+                tileId -> {
+                    try {
+                        GameState state = GameSession.engine().getState();
+                        String victimId = promptVictimSelection(state, tileId);
+                        if (victimId == null && hasValidVictimForTile(state, tileId)) {
+                            refreshGameController();
+                            return;
+                        }
+                        GameSession.engine().playDevelopmentCard(active.getId(), cardId, tileId, victimId);
+                        logEvent(active.getName() + " memainkan Kartu Penjaga.");
+                        refreshGameController();
+                        checkVictoryAfterPlay();
+                    } catch (RuntimeException ex) {
+                        showAlert("Gagal Memainkan Kartu", ex.getMessage());
+                        refreshGameController();
+                    }
+                }
+        );
     }
 
     private String promptVictimSelection(GameState state, String tileId) {
@@ -272,7 +302,10 @@ public class CardsDialogController {
         for (var intersection : tile.getIntersections()) {
             intersection.getBuilding().ifPresent(b -> {
                 Player owner = b.getOwner();
-                if (owner != null && !owner.equals(state.getCurrentPlayer()) && !victims.contains(owner)) {
+                if (owner != null
+                        && !owner.equals(state.getCurrentPlayer())
+                        && owner.getTotalResourceCards() > 0
+                        && !victims.contains(owner)) {
                     victims.add(owner);
                 }
             });
@@ -294,6 +327,19 @@ public class CardsDialogController {
                 .findFirst()
                 .map(Player::getId)
                 .orElse(null);
+    }
+
+    private boolean hasValidVictimForTile(GameState state, String tileId) {
+        HexTile tile = state.getBoard().getTile(tileId);
+        if (tile == null) {
+            return false;
+        }
+        Player active = state.getCurrentPlayer();
+        return tile.getIntersections().stream()
+                .map(intersection -> intersection.getBuilding().orElse(null))
+                .filter(building -> building != null)
+                .map(building -> building.getOwner())
+                .anyMatch(owner -> !owner.equals(active) && owner.getTotalResourceCards() > 0);
     }
 
     private ResourceType promptResourceSelection() {
@@ -327,71 +373,110 @@ public class CardsDialogController {
         buyBtn.setDisable(!engine.canBuyDevelopmentCard(active.getId()));
     }
 
-    private List<String> promptRoadBuildingPaths(GameState state, Player player) {
-        List<String> firstOptions = validRoadBuildingPathIds(state, player, List.of());
+    private HBox createBuyButtonGraphic() {
+        HBox graphic = new HBox(8);
+        graphic.setAlignment(Pos.CENTER_LEFT);
+        graphic.getStyleClass().add("card-buy-costs");
+
+        ResourceInventory cost = buildCostProvider.getCost(BuildActionType.EXPERIMENT_CARD);
+        for (ResourceType type : ResourceType.values()) {
+            int amount = cost.getAmount(type);
+            if (amount > 0) {
+                graphic.getChildren().add(createBuyCostItem(type, amount));
+            }
+        }
+        return graphic;
+    }
+
+    private HBox createBuyCostItem(ResourceType type, int amount) {
+        HBox item = new HBox(4);
+        item.setAlignment(Pos.CENTER_LEFT);
+        item.getStyleClass().add("card-buy-cost-item");
+
+        Group icon = ResourceIcons.of(toIconKind(type));
+        icon.setScaleX(1.1);
+        icon.setScaleY(1.1);
+
+        StackPane iconSlot = new StackPane(icon);
+        iconSlot.getStyleClass().add("card-buy-cost-item__icon");
+
+        Label countLabel = new Label("x" + amount);
+        countLabel.getStyleClass().add("card-buy-cost-item__value");
+
+        item.getChildren().addAll(iconSlot, countLabel);
+        return item;
+    }
+
+    private ResourceIcons.Kind toIconKind(ResourceType type) {
+        return switch (type) {
+            case WOOD -> ResourceIcons.Kind.WOOD;
+            case BRICK -> ResourceIcons.Kind.BRICK;
+            case WHEAT -> ResourceIcons.Kind.WHEAT;
+            case ORE -> ResourceIcons.Kind.ORE;
+            case BANANA -> ResourceIcons.Kind.BANANA;
+        };
+    }
+
+    private void beginRoadBuildingPlacement(GameEngine engine, Player player, String cardId) {
+        GameController gameController = GameSession.getGameController();
+        if (gameController == null) {
+            showAlert("Error", "Board controller tidak tersedia.");
+            return;
+        }
+
+        List<String> firstOptions = validRoadBuildingPathIds(engine.getState(), player, List.of());
         if (firstOptions.isEmpty()) {
-            return List.of();
+            showAlert("Gagal", "Tidak ada jalur yang bisa dibangun.");
+            return;
         }
 
-        String firstPathId = promptPathChoice(
-                "Konstruksi Cepat",
-                "Pilih pipa gratis pertama.",
-                firstOptions
-        );
-        if (firstPathId == null) {
-            return List.of();
-        }
-
-        List<String> selected = new ArrayList<>();
-        selected.add(firstPathId);
-
-        List<String> secondOptions = validRoadBuildingPathIds(state, player, selected);
-        if (secondOptions.isEmpty()) {
-            return selected;
-        }
-
-        String secondPathId = promptPathChoiceWithSkip(
-                "Konstruksi Cepat",
-                "Pilih pipa gratis kedua, atau selesai setelah satu pipa.",
-                secondOptions
-        );
-        if (secondPathId != null) {
-            selected.add(secondPathId);
-        }
-        return selected;
+        close();
+        requestRoadBuildingPath(gameController, player, cardId, new ArrayList<>(), firstOptions, true);
     }
 
-    private String promptPathChoice(String title, String header, List<String> pathIds) {
-        Map<String, String> valuesByLabel = pathChoiceLabels(GameSession.engine().getState(), pathIds);
-        List<String> labels = new ArrayList<>(valuesByLabel.keySet());
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.getFirst(), labels);
-        dialog.setTitle(title);
-        dialog.setHeaderText(header);
-        dialog.setContentText("Jalur:");
-        return dialog.showAndWait().map(valuesByLabel::get).orElse(null);
+    private void requestRoadBuildingPath(
+            GameController gameController,
+            Player player,
+            String cardId,
+            List<String> selectedPathIds,
+            List<String> options,
+            boolean firstPick
+    ) {
+        String prompt = firstPick
+                ? "Click a highlighted path for the first free pipe."
+                : "Click a highlighted path for the second free pipe, or right-click to finish.";
+
+        Runnable cancelAction = firstPick
+                ? this::refreshGameController
+                : () -> finalizeRoadBuildingSelection(player, cardId, selectedPathIds);
+
+        gameController.beginPathSelection(prompt, options, pathId -> {
+            List<String> updated = new ArrayList<>(selectedPathIds);
+            updated.add(pathId);
+
+            List<String> nextOptions = validRoadBuildingPathIds(GameSession.engine().getState(), player, updated);
+            if (firstPick && !nextOptions.isEmpty()) {
+                requestRoadBuildingPath(gameController, player, cardId, updated, nextOptions, false);
+                return;
+            }
+            finalizeRoadBuildingSelection(player, cardId, updated);
+        }, cancelAction);
     }
 
-    private String promptPathChoiceWithSkip(String title, String header, List<String> pathIds) {
-        Map<String, String> valuesByLabel = pathChoiceLabels(GameSession.engine().getState(), pathIds);
-        LinkedHashMap<String, String> options = new LinkedHashMap<>();
-        options.put("Selesai setelah 1 pipa", null);
-        options.putAll(valuesByLabel);
-        List<String> labels = new ArrayList<>(options.keySet());
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(labels.getFirst(), labels);
-        dialog.setTitle(title);
-        dialog.setHeaderText(header);
-        dialog.setContentText("Jalur:");
-        return dialog.showAndWait().map(options::get).orElse(null);
-    }
-
-    private Map<String, String> pathChoiceLabels(GameState state, List<String> pathIds) {
-        LinkedHashMap<String, String> valuesByLabel = new LinkedHashMap<>();
-        for (String pathId : pathIds) {
-            var path = state.getBoard().getPath(pathId);
-            String label = pathId + "  (" + path.getEndpointA().getId() + " - " + path.getEndpointB().getId() + ")";
-            valuesByLabel.put(label, pathId);
+    private void finalizeRoadBuildingSelection(Player player, String cardId, List<String> pathIds) {
+        if (pathIds.isEmpty()) {
+            refreshGameController();
+            return;
         }
-        return valuesByLabel;
+        try {
+            GameSession.engine().playDevelopmentCard(player.getId(), cardId, pathIds);
+            logEvent(player.getName() + " memainkan Konstruksi Cepat (" + pathIds.size() + " pipa).");
+            refreshGameController();
+            checkVictoryAfterPlay();
+        } catch (RuntimeException ex) {
+            showAlert("Gagal Memainkan Kartu", ex.getMessage());
+            refreshGameController();
+        }
     }
 
     private List<String> validRoadBuildingPathIds(GameState state, Player player, List<String> plannedPathIds) {

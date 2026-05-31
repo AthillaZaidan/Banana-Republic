@@ -127,13 +127,10 @@ public class TradeDialogController {
 
     @FXML
     private void onSelectMaritime() {
-<<<<<<< HEAD
         if (pendingOffer != null) {
             return;
         }
-=======
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
->>>>>>> dev
         maritimeMode = true;
         tabMaritime.getStyleClass().setAll("tab", "is-active");
         tabDomestic.getStyleClass().setAll("tab");

@@ -4,18 +4,23 @@ import com.bananarepublic.model.board.Board;
 import com.bananarepublic.model.board.HexTile;
 import com.bananarepublic.model.board.Intersection;
 import com.bananarepublic.model.board.Path;
+import com.bananarepublic.model.board.TerrainType;
 import com.bananarepublic.model.card.DevelopmentDeck;
+import com.bananarepublic.model.building.Laboratory;
+import com.bananarepublic.model.building.MonitoringPost;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.model.player.PlayerColor;
 import com.bananarepublic.model.player.SpecialCardType;
 import com.bananarepublic.model.resource.Bank;
 import com.bananarepublic.model.resource.ResourceType;
+import com.bananarepublic.service.resource.ResourceProductionService;
 import com.bananarepublic.service.dice.DiceMode;
 import com.bananarepublic.service.dice.DiceRoll;
 import com.bananarepublic.service.timer.TurnTimerService;
 import com.bananarepublic.service.victory.VictoryService;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -214,6 +219,114 @@ class SetupTimerVictoryTest {
         assertEquals(bankBefore, state.getBank().getAmount(tile.getProducedResource()));
         assertEquals(0, p1.getResourceAmount(tile.getProducedResource()));
         assertEquals(0, p2.getResourceAmount(tile.getProducedResource()));
+    }
+
+    @Test
+    void productionGivesOneForPostAndTwoForLaboratory() {
+        GameEngine engine = createTwoPlayerGame();
+        GameState state = engine.getState();
+        HexTile tile = state.getBoard().getTiles().stream()
+                .filter(candidate -> candidate.getTerrainType().producesResource())
+                .findFirst()
+                .orElseThrow();
+
+        Intersection postIntersection = tile.getIntersections().get(0);
+        Intersection labIntersection = tile.getIntersections().stream()
+                .filter(candidate -> candidate != postIntersection)
+                .filter(candidate -> !candidate.getConnectedPaths().stream()
+                        .map(path -> path.getOtherEndpoint(candidate))
+                        .toList()
+                        .contains(postIntersection))
+                .findFirst()
+                .orElseThrow();
+
+        Player player = state.getPlayers().get(0);
+        placeMonitoringPost(player, postIntersection);
+        placeMonitoringPost(player, labIntersection);
+
+        var previousBuilding = labIntersection.getBuilding().orElseThrow();
+        player.unregisterBuilding(previousBuilding);
+        Laboratory laboratory = new Laboratory(player, labIntersection);
+        labIntersection.replaceBuilding(laboratory);
+        player.registerBuilding(laboratory);
+
+        int bankBefore = state.getBank().getAmount(tile.getProducedResource());
+
+        engine.produceResources(tile.getToken());
+
+        assertEquals(3, player.getResourceAmount(tile.getProducedResource()));
+        assertEquals(bankBefore - 3, state.getBank().getAmount(tile.getProducedResource()));
+    }
+
+    @Test
+    void nimonBlocksProductionOnItsTile() {
+        GameEngine engine = createTwoPlayerGame();
+        GameState state = engine.getState();
+        HexTile tile = state.getBoard().getTiles().stream()
+                .filter(candidate -> candidate.getTerrainType().producesResource())
+                .findFirst()
+                .orElseThrow();
+
+        Player player = state.getPlayers().get(0);
+        placeMonitoringPost(player, tile.getIntersections().get(0));
+        state.moveNimonTo(tile.getId());
+
+        int bankBefore = state.getBank().getAmount(tile.getProducedResource());
+        engine.produceResources(tile.getToken());
+
+        assertEquals(0, player.getResourceAmount(tile.getProducedResource()));
+        assertEquals(bankBefore, state.getBank().getAmount(tile.getProducedResource()));
+    }
+
+    @Test
+    void productionShortageAcrossMultipleTilesOfSameResourceSkipsEveryone() {
+        Player firstPlayer = new Player("P1", "P1", PlayerColor.RED);
+        Player secondPlayer = new Player("P2", "P2", PlayerColor.BLUE);
+
+        HexTile woodA = new HexTile("T1", TerrainType.FOREST, 5);
+        HexTile woodB = new HexTile("T2", TerrainType.FOREST, 5);
+        HexTile desert = new HexTile("T3", TerrainType.DESERT, null);
+
+        Intersection firstIntersection = new Intersection("I1");
+        Intersection secondIntersection = new Intersection("I2");
+        Intersection desertIntersection = new Intersection("I3");
+
+        link(woodA, firstIntersection);
+        link(woodB, secondIntersection);
+        link(desert, desertIntersection);
+
+        placeMonitoringPost(firstPlayer, firstIntersection);
+        placeMonitoringPost(secondPlayer, secondIntersection);
+
+        Board board = new Board(
+                new LinkedHashMap<>(java.util.Map.of(
+                        woodA.getId(), woodA,
+                        woodB.getId(), woodB,
+                        desert.getId(), desert
+                )),
+                new LinkedHashMap<>(java.util.Map.of(
+                        firstIntersection.getId(), firstIntersection,
+                        secondIntersection.getId(), secondIntersection,
+                        desertIntersection.getId(), desertIntersection
+                )),
+                java.util.Map.of(),
+                java.util.Map.of()
+        );
+
+        GameState state = new GameState(
+                board,
+                List.of(firstPlayer, secondPlayer),
+                new Bank(),
+                new TurnState(0, TurnPhase.RESOURCE_GATHERING)
+        );
+        drainBank(state.getBank(), ResourceType.WOOD, 18);
+        int bankBefore = state.getBank().getAmount(ResourceType.WOOD);
+
+        new ResourceProductionService().produce(state, 5);
+
+        assertEquals(bankBefore, state.getBank().getAmount(ResourceType.WOOD));
+        assertEquals(0, firstPlayer.getResourceAmount(ResourceType.WOOD));
+        assertEquals(0, secondPlayer.getResourceAmount(ResourceType.WOOD));
     }
 
     @Test
@@ -466,6 +579,17 @@ class SetupTimerVictoryTest {
     private void grantRoadResources(Player player, int pathCount) {
         player.addResource(ResourceType.WOOD, pathCount);
         player.addResource(ResourceType.BRICK, pathCount);
+    }
+
+    private void placeMonitoringPost(Player player, Intersection intersection) {
+        MonitoringPost post = new MonitoringPost(player, intersection);
+        intersection.placeBuilding(post);
+        player.registerBuilding(post);
+    }
+
+    private void link(HexTile tile, Intersection intersection) {
+        tile.addIntersection(intersection);
+        intersection.addAdjacentTile(tile);
     }
 
     private Intersection sharedIntersection(Path first, Path second) {
