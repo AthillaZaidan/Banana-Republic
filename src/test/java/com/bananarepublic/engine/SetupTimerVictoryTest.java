@@ -19,6 +19,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SetupTimerVictoryTest {
@@ -121,6 +122,57 @@ class SetupTimerVictoryTest {
 
         assertEquals(active, state.getLongestRoadHolder().orElseThrow());
         assertTrue(active.hasSpecialCard(SpecialCardType.LONGEST_ROAD));
+    }
+
+    @Test
+    void buildActionsRequireTradeBuildPhaseAndActivePlayer() {
+        GameEngine engine = createTwoPlayerGame();
+        Player p1 = engine.getState().getPlayers().get(0);
+        Player p2 = engine.getState().getPlayers().get(1);
+        Path setupPath = engine.getState().getBoard().getPaths().stream()
+                .findFirst()
+                .orElseThrow();
+
+        assertThrows(IllegalStateException.class, () -> engine.buildRoad(p1.getId(), setupPath.getId()));
+
+        finishSetup(engine);
+        Player active = engine.getState().getCurrentPlayer();
+        grantRoadResources(active, 1);
+        engine.rollDice(DiceMode.MANUAL, DiceRoll.of(2, 4));
+
+        Path buildPath = connectedEmptyPathChain(engine.getState().getBoard(), 1).getFirst();
+        String nonActivePlayerId = active.equals(p1) ? p2.getId() : p1.getId();
+        assertThrows(IllegalArgumentException.class, () -> engine.buildRoad(nonActivePlayerId, buildPath.getId()));
+    }
+
+    @Test
+    void opponentBuildingBreaksLongestRoadContinuity() {
+        GameEngine engine = createTwoPlayerGame();
+        GameState state = engine.getState();
+        finishSetup(engine);
+
+        Player active = state.getCurrentPlayer();
+        Player blocker = state.getPlayers().stream()
+                .filter(player -> !player.equals(active))
+                .findFirst()
+                .orElseThrow();
+        List<Path> road = connectedEmptyPathChain(state.getBoard(), 5);
+        grantRoadResources(active, 5);
+
+        for (Path path : road) {
+            engine.buildRoad(active.getId(), path.getId(), true);
+        }
+        assertEquals(active, state.getLongestRoadHolder().orElseThrow());
+
+        Intersection blockedIntersection = sharedIntersection(road.get(1), road.get(2));
+        blockedIntersection.placeBuilding(new com.bananarepublic.model.building.MonitoringPost(blocker, blockedIntersection));
+        blocker.registerBuilding(blockedIntersection.getBuilding().orElseThrow());
+
+        engine.checkVictory();
+
+        assertEquals(3, new VictoryService().calculateLongestRoad(active));
+        assertTrue(state.getLongestRoadHolder().isEmpty());
+        assertTrue(!active.hasSpecialCard(SpecialCardType.LONGEST_ROAD));
     }
 
     @Test
@@ -238,6 +290,16 @@ class SetupTimerVictoryTest {
     private void grantRoadResources(Player player, int pathCount) {
         player.addResource(ResourceType.WOOD, pathCount);
         player.addResource(ResourceType.BRICK, pathCount);
+    }
+
+    private Intersection sharedIntersection(Path first, Path second) {
+        if (first.connectsTo(second.getEndpointA())) {
+            return second.getEndpointA();
+        }
+        if (first.connectsTo(second.getEndpointB())) {
+            return second.getEndpointB();
+        }
+        throw new IllegalArgumentException("Paths do not share an intersection");
     }
 
     private void drainBank(Bank bank, ResourceType type, int amount) {

@@ -310,22 +310,19 @@
 }
 
 .res-bar {
-    -fx-background-color: linear-gradient(to bottom, -panel-mid 0%, -panel-darkest 100%);
-    -fx-border-color: -panel-darkest;
-    -fx-border-width: 1.5;
-    -fx-background-radius: 999;
-    -fx-border-radius: 999;
-    -fx-padding: 4;
-    -fx-spacing: 2;
-    -fx-effect: dropshadow(gaussian, rgba(0, 20, 40, 0.45), 14, 0.05, 0, 6);
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+    -fx-spacing: 18;
+    -fx-effect: null;
 }
 
 .res-chip {
-    -fx-padding: 6 14 6 10;
+    -fx-padding: 0;
     -fx-text-fill: -ink-on-dark;
-    -fx-font-weight: bold;
-    -fx-font-size: 15px;
-    -fx-spacing: 6;
+    -fx-font-weight: 900;
+    -fx-font-size: 20px;
+    -fx-spacing: 10;
     -fx-alignment: center-left;
 }
 .res-chip .label {
@@ -334,15 +331,15 @@
 .res-chip-vp {
     -fx-background-color: radial-gradient(center 35% 30%, radius 75%, -gold-3, -gold-2);
     -fx-text-fill: #1a1108;
-    -fx-min-width: 30; -fx-min-height: 30;
-    -fx-max-width: 30; -fx-max-height: 30;
+    -fx-min-width: 44; -fx-min-height: 44;
+    -fx-max-width: 44; -fx-max-height: 44;
     -fx-background-radius: 999;
     -fx-border-color: -ocean-deep;
-    -fx-border-width: 2;
+    -fx-border-width: 2.2;
     -fx-border-radius: 999;
     -fx-alignment: center;
     -fx-font-weight: 900;
-    -fx-font-size: 14px;
+    -fx-font-size: 20px;
 }
 
 .modal-backdrop {
@@ -547,6 +544,9 @@
     -fx-font-weight: 900;
     -fx-alignment: center;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.4), 4, 0.05, 0, 2);
+}
+.coin .label {
+    -fx-text-fill: #1a1108;
 }
 
 .initial-chip {

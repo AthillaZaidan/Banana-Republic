@@ -8,10 +8,6 @@ import com.bananarepublic.model.player.PlayerColor;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
-import javafx.beans.value.ChangeListener;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.collections.ObservableSet;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -133,8 +129,10 @@ public class LobbyController {
                 row.index, name, row.selectedColor);
         }
         GameEngine engine = new GameEngine();
-        engine.startNewGame(new GameConfig(configs, BoardMode.FIXED, false));
+        engine.startNewGame(new GameConfig(configs, BoardMode.FIXED, true));
         GameSession.setEngine(engine);
+        GameSession.markSessionStartNow();
+        GameSession.setStartingOrderPending(true);
         Navigator.goTo("/fxml/game.fxml");
     }
 

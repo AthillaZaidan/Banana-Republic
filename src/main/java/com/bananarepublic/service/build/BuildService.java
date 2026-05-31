@@ -31,17 +31,7 @@ public class BuildService {
         Player player = state.getPlayerById(playerId);
         Path path = getPath(state, pathId);
 
-        if (path.hasPipe()) {
-            throw new InvalidMoveException("Path already has a pipe");
-        }
-
-        if (!player.getSupply().hasPipe()) {
-            throw new InvalidMoveException("No pipe supply left");
-        }
-
-        if (!setupBuild && !isConnectedToPlayerNetwork(path, player)) {
-            throw new InvalidMoveException("Pipe must connect to player's network");
-        }
+        validatePipePlacement(path, player, setupBuild);
 
         if (!setupBuild) {
             payCost(state, player, BuildActionType.PIPE);
@@ -58,21 +48,7 @@ public class BuildService {
         Player player = state.getPlayerById(playerId);
         Intersection intersection = getIntersection(state, intersectionId);
 
-        if (intersection.isOccupied()) {
-            throw new InvalidMoveException("Intersection already has a building");
-        }
-
-        if (!player.getSupply().hasMonitoringPost()) {
-            throw new InvalidMoveException("No monitoring post supply left");
-        }
-
-        if (!hasEnoughDistance(intersection)) {
-            throw new InvalidMoveException("Adjacent intersection already has a building");
-        }
-
-        if (!setupBuild && !isConnectedToPlayerPipe(intersection, player)) {
-            throw new InvalidMoveException("Monitoring post must connect to player's pipe");
-        }
+        validateMonitoringPostPlacement(intersection, player, setupBuild);
 
         if (!setupBuild) {
             payCost(state, player, BuildActionType.MONITORING_POST);
@@ -88,6 +64,87 @@ public class BuildService {
         Objects.requireNonNull(state, "Game state cannot be null");
         Player player = state.getPlayerById(playerId);
         Intersection intersection = getIntersection(state, intersectionId);
+        Building existing = validateLaboratoryUpgrade(intersection, player);
+
+        payCost(state, player, BuildActionType.LABORATORY);
+
+        Laboratory laboratory = new Laboratory(player, intersection);
+        intersection.replaceBuilding(laboratory);
+        player.unregisterBuilding(existing);
+        player.getSupply().returnMonitoringPost();
+        player.getSupply().useLaboratory();
+        player.registerBuilding(laboratory);
+    }
+
+    public boolean canBuildPipe(GameState state, String playerId, String pathId, boolean setupBuild) {
+        Objects.requireNonNull(state, "Game state cannot be null");
+        try {
+            Player player = state.getPlayerById(playerId);
+            Path path = getPath(state, pathId);
+            validatePipePlacement(path, player, setupBuild);
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    public boolean canBuildMonitoringPost(GameState state, String playerId, String intersectionId, boolean setupBuild) {
+        Objects.requireNonNull(state, "Game state cannot be null");
+        try {
+            Player player = state.getPlayerById(playerId);
+            Intersection intersection = getIntersection(state, intersectionId);
+            validateMonitoringPostPlacement(intersection, player, setupBuild);
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    public boolean canUpgradeLaboratory(GameState state, String playerId, String intersectionId) {
+        Objects.requireNonNull(state, "Game state cannot be null");
+        try {
+            Player player = state.getPlayerById(playerId);
+            Intersection intersection = getIntersection(state, intersectionId);
+            validateLaboratoryUpgrade(intersection, player);
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private void validatePipePlacement(Path path, Player player, boolean setupBuild) {
+        if (path.hasPipe()) {
+            throw new InvalidMoveException("Path already has a pipe");
+        }
+
+        if (!player.getSupply().hasPipe()) {
+            throw new InvalidMoveException("No pipe supply left");
+        }
+
+        if (!setupBuild && !isConnectedToPlayerNetwork(path, player)) {
+            throw new InvalidMoveException("Pipe must connect to player's network");
+        }
+    }
+
+    private void validateMonitoringPostPlacement(Intersection intersection, Player player, boolean setupBuild) {
+        if (intersection.isOccupied()) {
+            throw new InvalidMoveException("Intersection already has a building");
+        }
+
+        if (!player.getSupply().hasMonitoringPost()) {
+            throw new InvalidMoveException("No monitoring post supply left");
+        }
+
+        if (!hasEnoughDistance(intersection)) {
+            throw new InvalidMoveException("Adjacent intersection already has a building");
+        }
+
+        if (!setupBuild && !isConnectedToPlayerPipe(intersection, player)) {
+            throw new InvalidMoveException("Monitoring post must connect to player's pipe");
+        }
+    }
+
+    private Building validateLaboratoryUpgrade(Intersection intersection, Player player) {
         Building existing = intersection.getBuilding()
                 .orElseThrow(() -> new InvalidMoveException("Intersection has no building"));
 
@@ -99,14 +156,7 @@ public class BuildService {
             throw new InvalidMoveException("No laboratory supply left");
         }
 
-        payCost(state, player, BuildActionType.LABORATORY);
-
-        Laboratory laboratory = new Laboratory(player, intersection);
-        intersection.replaceBuilding(laboratory);
-        player.unregisterBuilding(existing);
-        player.getSupply().returnMonitoringPost();
-        player.getSupply().useLaboratory();
-        player.registerBuilding(laboratory);
+        return existing;
     }
 
     private void payCost(GameState state, Player player, BuildActionType actionType) {
@@ -133,14 +183,21 @@ public class BuildService {
     }
 
     private boolean isConnectedToPlayerNetwork(Path path, Player player) {
-        return endpointBelongsToPlayer(path.getEndpointA(), player)
-                || endpointBelongsToPlayer(path.getEndpointB(), player)
-                || path.getEndpointA().getConnectedPaths().stream()
-                .filter(connectedPath -> connectedPath != path)
-                .flatMap(connectedPath -> connectedPath.getPipe().stream())
-                .anyMatch(pipe -> pipe.isOwnedBy(player))
-                || path.getEndpointB().getConnectedPaths().stream()
-                .filter(connectedPath -> connectedPath != path)
+        return canExtendFrom(path.getEndpointA(), path, player)
+                || canExtendFrom(path.getEndpointB(), path, player);
+    }
+
+    private boolean canExtendFrom(Intersection intersection, Path targetPath, Player player) {
+        if (endpointBelongsToPlayer(intersection, player)) {
+            return true;
+        }
+
+        if (isBlockedByOpponentBuilding(intersection, player)) {
+            return false;
+        }
+
+        return intersection.getConnectedPaths().stream()
+                .filter(connectedPath -> connectedPath != targetPath)
                 .flatMap(connectedPath -> connectedPath.getPipe().stream())
                 .anyMatch(pipe -> pipe.isOwnedBy(player));
     }
@@ -148,6 +205,12 @@ public class BuildService {
     private boolean endpointBelongsToPlayer(Intersection intersection, Player player) {
         return intersection.getBuilding()
                 .map(building -> building.isOwnedBy(player))
+                .orElse(false);
+    }
+
+    private boolean isBlockedByOpponentBuilding(Intersection intersection, Player player) {
+        return intersection.getBuilding()
+                .map(building -> !building.isOwnedBy(player))
                 .orElse(false);
     }
 

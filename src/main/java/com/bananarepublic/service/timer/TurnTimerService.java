@@ -52,6 +52,10 @@ public class TurnTimerService implements AutoCloseable {
         return remainingSeconds;
     }
 
+    public synchronized boolean isRunning() {
+        return activeTask != null && !activeTask.isCancelled() && !activeTask.isDone();
+    }
+
     public void expireNow() {
         Runnable callback;
         synchronized (this) {

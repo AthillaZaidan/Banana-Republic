@@ -39,9 +39,10 @@
                              -fx-border-color: -parchment-line; -fx-background-radius: 10;
                              -fx-border-radius: 10; -fx-padding: 14 18;">
                     <Label styleClass="eyebrow" text="PUBLIC POINTS"/>
-                    <Label text="8" style="-fx-font-family: Georgia; -fx-font-weight: 900;
-                                            -fx-font-size: 38px; -fx-text-fill: -ink-1;"/>
-                    <Label text="3 Posts · 1 Lab · 1 Bonus · 1 Bonus"
+                    <Label fx:id="publicPointsValue" text="8"
+                           style="-fx-font-family: Georgia; -fx-font-weight: 900;
+                                  -fx-font-size: 38px; -fx-text-fill: -ink-1;"/>
+                    <Label fx:id="publicPointsBreakdown" text="3 Posts · 1 Lab · 1 Bonus · 1 Bonus"
                            style="-fx-font-size: 11px; -fx-text-fill: -ink-mute;"/>
                 </VBox>
 
@@ -50,9 +51,10 @@
                              -fx-border-color: rgba(245, 183, 56, 0.6); -fx-background-radius: 10;
                              -fx-border-radius: 10; -fx-padding: 14 18;">
                     <Label styleClass="eyebrow,text-gold-deep" text="SECRET CARD POINTS"/>
-                    <Label text="+2" style="-fx-font-family: Georgia; -fx-font-weight: 900;
-                                              -fx-font-size: 38px; -fx-text-fill: -gold-deep;"/>
-                    <Label text="2 Poin Rahasia cards in hand"
+                    <Label fx:id="secretPointsValue" text="+2"
+                           style="-fx-font-family: Georgia; -fx-font-weight: 900;
+                                  -fx-font-size: 38px; -fx-text-fill: -gold-deep;"/>
+                    <Label fx:id="secretPointsBreakdown" text="2 Poin Rahasia cards in hand"
                            style="-fx-font-size: 11px; -fx-text-fill: -gold-deep;"/>
                 </VBox>
             </GridPane>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.DiceRollDialogController"
+           styleClass="modal-backdrop" prefWidth="1280" prefHeight="800">
+
+    <VBox styleClass="modal" maxWidth="680" maxHeight="-Infinity">
+
+        <HBox styleClass="modal__header" alignment="CENTER_LEFT">
+            <Label fx:id="titleLabel" styleClass="modal__title" text="🎲  ROLL DICE"
+                   HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
+        </HBox>
+
+        <VBox styleClass="modal__body" spacing="14">
+            <Label fx:id="headerLabel" text="Choose random roll or set both dice manually."
+                   wrapText="true" style="-fx-font-size: 13px; -fx-text-fill: -ink-mute;"/>
+
+            <HBox styleClass="tabs" spacing="28">
+                <Label fx:id="tabRandom" styleClass="tab,is-active" text="RANDOM ROLL"
+                       onMouseClicked="#onSelectRandom"/>
+                <Label fx:id="tabManual" styleClass="tab" text="MANUAL PICK"
+                       onMouseClicked="#onSelectManual"/>
+            </HBox>
+
+            <HBox alignment="CENTER" spacing="18"
+                  style="-fx-padding: 14 16; -fx-background-color: rgba(20,40,52,0.86);
+                         -fx-border-color: rgba(244,201,118,0.24); -fx-border-width: 1.2;
+                         -fx-background-radius: 14; -fx-border-radius: 14;">
+                <StackPane style="-fx-min-width: 128; -fx-pref-width: 128; -fx-min-height: 128; -fx-pref-height: 128;
+                                  -fx-background-color: #ffffff; -fx-border-color: #d7c49a; -fx-border-width: 1.4;
+                                  -fx-background-radius: 16; -fx-border-radius: 16;">
+                    <Pane fx:id="firstDiePreview" pickOnBounds="false"/>
+                </StackPane>
+                <Label text="+" style="-fx-font-size: 24px; -fx-text-fill: #f0cf6a;"/>
+                <StackPane style="-fx-min-width: 128; -fx-pref-width: 128; -fx-min-height: 128; -fx-pref-height: 128;
+                                  -fx-background-color: #ffffff; -fx-border-color: #d7c49a; -fx-border-width: 1.4;
+                                  -fx-background-radius: 16; -fx-border-radius: 16;">
+                    <Pane fx:id="secondDiePreview" pickOnBounds="false"/>
+                </StackPane>
+            </HBox>
+
+            <VBox fx:id="manualSection" spacing="10">
+                <Label styleClass="eyebrow" text="DIE 1"/>
+                <HBox fx:id="firstDieRow" spacing="8"/>
+
+                <Label styleClass="eyebrow" text="DIE 2">
+                    <VBox.margin><Insets top="6"/></VBox.margin>
+                </Label>
+                <HBox fx:id="secondDieRow" spacing="8"/>
+            </VBox>
+
+            <Label fx:id="helperLabel" styleClass="warn-band"
+                   text="Random mode will roll both dice automatically."/>
+        </VBox>
+
+        <HBox styleClass="modal__footer">
+            <Button styleClass="btn,btn-outline" text="CANCEL" onAction="#onClose"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="confirmBtn" styleClass="btn,btn-gold" text="ROLL"
+                    onAction="#onConfirm"/>
+        </HBox>
+    </VBox>
+</StackPane>

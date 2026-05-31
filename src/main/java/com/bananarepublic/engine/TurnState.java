@@ -141,7 +141,9 @@ public class TurnState {
             int remainingSeconds,
             boolean waitingForSetupPipe,
             String setupPostIntersectionId,
-            Set<String> newlyBoughtCardIds
+            Set<String> newlyBoughtCardIds,
+            Set<String> pendingDiscardPlayerIds,
+            boolean nimonMovedThisSeven
     ) {
         TurnState restoredState = new TurnState(currentPlayerIndex, phase);
         restoredState.setSetupRound(setupRound);
@@ -154,9 +156,14 @@ public class TurnState {
         for (String cardId : Objects.requireNonNull(newlyBoughtCardIds, "Newly bought card ids cannot be null")) {
             restoredState.addNewlyBoughtCard(cardId);
         }
+        restoredState.setPendingDiscardPlayerIds(Objects.requireNonNull(
+                pendingDiscardPlayerIds,
+                "Pending discard player ids cannot be null"
+        ));
+        restoredState.setNimonMovedThisSeven(nimonMovedThisSeven);
 
         assert restoredState.newlyBoughtCardIds.size() == newlyBoughtCardIds.size();
+        assert restoredState.pendingDiscardPlayerIds.size() == pendingDiscardPlayerIds.size();
         return restoredState;
     }
 }
-

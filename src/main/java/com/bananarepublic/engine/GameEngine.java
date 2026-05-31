@@ -47,6 +47,7 @@ public class GameEngine {
     private final TradeService tradeService;
     private final NimonService nimonService;
     private final SaveLoadService saveLoadService;
+    private boolean manualDiceEnabled;
     private GameState state;
 
     public GameEngine() {
@@ -109,6 +110,7 @@ public class GameEngine {
         turnManager.startSetup(players);
         state = new GameState(board, players, bank, turnManager.getTurnState());
         state.setDevelopmentDeck(deck);
+        manualDiceEnabled = config.isManualDiceEnabled();
     }
 
     public DiceRoll rollDice(DiceMode mode, DiceRoll manualRoll) {
@@ -138,6 +140,8 @@ public class GameEngine {
 
     public void buildRoad(String playerId, String pathId) {
         requireStarted();
+        requireActivePlayer(playerId);
+        requireTradeBuildPhase();
         buildService.buildPipe(state, playerId, pathId, false);
         updateSpecialCards();
         updateWinner();
@@ -152,6 +156,8 @@ public class GameEngine {
 
     public void buildWatchPost(String playerId, String intersectionId) {
         requireStarted();
+        requireActivePlayer(playerId);
+        requireTradeBuildPhase();
         buildService.buildMonitoringPost(state, playerId, intersectionId, false);
         updateSpecialCards();
         updateWinner();
@@ -166,6 +172,8 @@ public class GameEngine {
 
     public void upgradeLaboratory(String playerId, String intersectionId) {
         requireStarted();
+        requireActivePlayer(playerId);
+        requireTradeBuildPhase();
         buildService.upgradeLaboratory(state, playerId, intersectionId);
         updateSpecialCards();
         updateWinner();
@@ -411,6 +419,59 @@ public class GameEngine {
         turnManager.moveToPhase(TurnPhase.TRADE_BUILD);
     }
 
+    public List<String> getValidSetupPostIds(String playerId) {
+        requireStarted();
+        return state.getBoard().getIntersections().stream()
+                .map(intersection -> intersection.getId())
+                .filter(intersectionId -> buildService.canBuildMonitoringPost(state, playerId, intersectionId, true))
+                .toList();
+    }
+
+    public List<String> getValidSetupRoadIds(String playerId) {
+        requireStarted();
+        String setupPostIntersectionId = state.getTurnState().getSetupPostIntersectionId();
+        if (setupPostIntersectionId == null) {
+            return List.of();
+        }
+        return state.getBoard().getPaths().stream()
+                .map(path -> path.getId())
+                .filter(pathId -> setupService.isSetupPipeConnectedToPost(state, pathId, setupPostIntersectionId))
+                .filter(pathId -> buildService.canBuildPipe(state, playerId, pathId, true))
+                .toList();
+    }
+
+    public List<String> getValidRoadIds(String playerId) {
+        requireStarted();
+        return state.getBoard().getPaths().stream()
+                .map(path -> path.getId())
+                .filter(pathId -> buildService.canBuildPipe(state, playerId, pathId, false))
+                .toList();
+    }
+
+    public List<String> getValidMonitoringPostIds(String playerId) {
+        requireStarted();
+        return state.getBoard().getIntersections().stream()
+                .map(intersection -> intersection.getId())
+                .filter(intersectionId -> buildService.canBuildMonitoringPost(state, playerId, intersectionId, false))
+                .toList();
+    }
+
+    public List<String> getValidLaboratoryUpgradeIds(String playerId) {
+        requireStarted();
+        return state.getBoard().getIntersections().stream()
+                .map(intersection -> intersection.getId())
+                .filter(intersectionId -> buildService.canUpgradeLaboratory(state, playerId, intersectionId))
+                .toList();
+    }
+
+    public List<String> getValidNimonTargetTileIds() {
+        requireStarted();
+        return state.getBoard().getTiles().stream()
+                .map(tile -> tile.getId())
+                .filter(tileId -> !tileId.equals(state.getNimonTileId()))
+                .toList();
+    }
+
     public void placeSetupWatchPost(String playerId, String intersectionId) {
         requireStarted();
         requireSetupPlayer(playerId);
@@ -455,6 +516,10 @@ public class GameEngine {
         return timerService;
     }
 
+    public boolean isManualDiceEnabled() {
+        return manualDiceEnabled;
+    }
+
     public void produceResources(int diceTotal) {
         requireStarted();
         resourceProductionService.produce(state, diceTotal);
@@ -489,6 +554,7 @@ public class GameEngine {
         timerService.stop();
         state = saveLoadService.load(file.toPath());
         turnManager.restore(state.getPlayers(), state.getTurnState());
+        manualDiceEnabled = true;
     }
 
     private DevelopmentCard findAndValidateCard(String playerId, String cardId) {
@@ -527,6 +593,12 @@ public class GameEngine {
         TurnPhase phase = state.getTurnState().getPhase();
         if (phase == TurnPhase.SETUP || phase == TurnPhase.GAME_OVER) {
             throw new IllegalStateException("Cannot play development card in " + phase + " phase");
+        }
+    }
+
+    private void requireTradeBuildPhase() {
+        if (state.getTurnState().getPhase() != TurnPhase.TRADE_BUILD) {
+            throw new IllegalStateException("Action is only valid during trade/build phase");
         }
     }
 

@@ -131,6 +131,18 @@ public class StealDialogController {
     private void onClose() { close(); }
 
     private void close() {
+        if (GameSession.hasEngine()) {
+            try {
+                GameSession.engine().finishNimonAfterSevenWithoutSteal();
+                GameController controller = GameSession.getGameController();
+                if (controller != null) {
+                    controller.log("[Nimon] Steal skipped.");
+                    controller.refresh();
+                }
+            } catch (RuntimeException ignored) {
+                // Overlay can also close after a resolved steal or outside the seven flow.
+            }
+        }
         Navigator.closeOverlay(root);
     }
 

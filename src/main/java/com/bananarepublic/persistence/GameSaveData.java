@@ -915,13 +915,19 @@ public record GameSaveData(
             int remainingSeconds,
             boolean waitingForSetupPipe,
             String setupPostIntersectionId,
-            Set<String> newlyBoughtCardIds
+            Set<String> newlyBoughtCardIds,
+            Set<String> pendingDiscardPlayerIds,
+            boolean nimonMovedThisSeven
     ) implements Serializable {
         private static final long serialVersionUID = 1L;
 
         public TurnSaveData {
             Objects.requireNonNull(phase, "Turn phase cannot be null");
             newlyBoughtCardIds = Set.copyOf(Objects.requireNonNull(newlyBoughtCardIds, "Newly bought card ids cannot be null"));
+            pendingDiscardPlayerIds = Set.copyOf(Objects.requireNonNull(
+                    pendingDiscardPlayerIds,
+                    "Pending discard player ids cannot be null"
+            ));
         }
 
         static TurnSaveData fromTurnState(TurnState turnState) {
@@ -933,7 +939,9 @@ public record GameSaveData(
                     turnState.getRemainingSeconds(),
                     turnState.isWaitingForSetupPipe(),
                     turnState.getSetupPostIntersectionId(),
-                    turnState.getNewlyBoughtCardIds()
+                    turnState.getNewlyBoughtCardIds(),
+                    turnState.getPendingDiscardPlayerIds(),
+                    turnState.isNimonMovedThisSeven()
             );
         }
 
@@ -947,7 +955,9 @@ public record GameSaveData(
                     remainingSeconds,
                     waitingForSetupPipe,
                     setupPostIntersectionId,
-                    newlyBoughtCardIds
+                    newlyBoughtCardIds,
+                    pendingDiscardPlayerIds,
+                    nimonMovedThisSeven
             );
         }
 
@@ -961,6 +971,8 @@ public record GameSaveData(
             summary.put("waitingForSetupPipe", waitingForSetupPipe);
             summary.put("setupPostIntersectionId", setupPostIntersectionId);
             summary.put("newlyBoughtCardIds", newlyBoughtCardIds.stream().sorted().toList());
+            summary.put("pendingDiscardPlayerIds", pendingDiscardPlayerIds.stream().sorted().toList());
+            summary.put("nimonMovedThisSeven", nimonMovedThisSeven);
             return summary;
         }
     }

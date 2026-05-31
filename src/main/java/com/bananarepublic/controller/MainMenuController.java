@@ -39,6 +39,8 @@ public class MainMenuController {
                 GameEngine engine = new GameEngine();
                 engine.loadGame(chosen);
                 GameSession.setEngine(engine);
+                GameSession.markSessionStartNow();
+                GameSession.setStartingOrderPending(false);
                 Navigator.goTo("/fxml/game.fxml");
             } catch (SaveLoadException ex) {
                 showAlert("Gagal Memuat Save", ex.getMessage(), Alert.AlertType.ERROR);

@@ -76,7 +76,7 @@ public class TradeService {
         }
 
         validateTradeParticipants(counterOffer.getProposerPlayerId(), counterOffer.getResponderPlayerId());
-        validateTradeResources(state, counterOffer);
+        validateCounterOfferResources(state, counterOffer);
         pendingOffer = counterOffer;
         return TradeResult.pending("Counter offer submitted", pendingOffer);
     }
@@ -202,6 +202,13 @@ public class TradeService {
         }
     }
 
+    private void validateCounterOfferResources(GameState state, TradeOffer offer) {
+        Player proposer = state.getPlayerById(offer.getProposerPlayerId());
+        if (!proposer.hasResources(offer.getOffered())) {
+            throw new InvalidTradeException("Proposer lacks offered resources");
+        }
+    }
+
     private void executeTransfer(Player proposer, Player responder, TradeOffer offer) {
         proposer.removeResources(offer.getOffered());
         responder.addResources(offer.getOffered());
@@ -210,4 +217,3 @@ public class TradeService {
         proposer.addResources(offer.getRequested());
     }
 }
-

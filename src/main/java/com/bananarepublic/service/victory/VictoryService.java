@@ -10,6 +10,8 @@ import com.bananarepublic.model.transport.Pipe;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -88,39 +90,49 @@ public class VictoryService {
 
     private void updateLongestRoad(GameState state) {
         Player currentHolder = state.getLongestRoadHolder().orElse(null);
-        Player bestPlayer = currentHolder;
-        int bestLength = currentHolder == null ? LONGEST_ROAD_MINIMUM - 1 : calculateLongestRoad(currentHolder);
-        boolean tiedCurrentHolder = false;
-
+        Map<Player, Integer> lengthsByPlayer = new LinkedHashMap<>();
         for (Player player : state.getPlayers()) {
             int length = calculateLongestRoad(player);
-            if (length >= LONGEST_ROAD_MINIMUM && length > bestLength) {
-                bestPlayer = player;
-                bestLength = length;
-                tiedCurrentHolder = false;
-            } else if (currentHolder != null && player != currentHolder && length == bestLength) {
-                tiedCurrentHolder = true;
-            }
+            lengthsByPlayer.put(player, length);
         }
 
-        if (currentHolder != null && calculateLongestRoad(currentHolder) < LONGEST_ROAD_MINIMUM) {
-            currentHolder.removeSpecialCard(SpecialCardType.LONGEST_ROAD);
-            state.setLongestRoadHolder(null);
-            return;
+        int bestLength = lengthsByPlayer.values().stream()
+                .filter(length -> length >= LONGEST_ROAD_MINIMUM)
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(LONGEST_ROAD_MINIMUM - 1);
+        List<Player> leaders = lengthsByPlayer.entrySet().stream()
+                .filter(entry -> entry.getValue() == bestLength)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        Player nextHolder;
+        if (leaders.isEmpty()) {
+            nextHolder = null;
+        } else if (leaders.size() == 1) {
+            nextHolder = leaders.getFirst();
+        } else if (currentHolder != null && leaders.contains(currentHolder)) {
+            nextHolder = currentHolder;
+        } else {
+            nextHolder = null;
         }
 
-        if (bestPlayer != currentHolder && !tiedCurrentHolder) {
+        if (nextHolder != currentHolder) {
             if (currentHolder != null) {
                 currentHolder.removeSpecialCard(SpecialCardType.LONGEST_ROAD);
             }
-            if (bestPlayer != null) {
-                bestPlayer.addSpecialCard(SpecialCardType.LONGEST_ROAD);
+            if (nextHolder != null) {
+                nextHolder.addSpecialCard(SpecialCardType.LONGEST_ROAD);
             }
-            state.setLongestRoadHolder(bestPlayer);
+            state.setLongestRoadHolder(nextHolder);
         }
     }
 
     private int dfs(Intersection intersection, Player player, Set<Path> visitedPaths) {
+        if (!visitedPaths.isEmpty() && isBlockedByOpponentBuilding(intersection, player)) {
+            return 0;
+        }
+
         int best = 0;
 
         for (Path path : intersection.getConnectedPaths()) {
@@ -135,5 +147,11 @@ public class VictoryService {
         }
 
         return best;
+    }
+
+    private boolean isBlockedByOpponentBuilding(Intersection intersection, Player player) {
+        return intersection.getBuilding()
+                .map(building -> !building.isOwnedBy(player))
+                .orElse(false);
     }
 }
