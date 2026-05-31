@@ -2,16 +2,14 @@ package com.bananarepublic.ui;
 
 import javafx.scene.Group;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Line;
-import javafx.scene.shape.ClosePath;
-import javafx.scene.shape.LineTo;
-import javafx.scene.shape.MoveTo;
-import javafx.scene.shape.Path;
-import javafx.scene.shape.PathElement;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
@@ -22,8 +20,18 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
 public final class HexBoard extends Pane {
-    private static final double HEX_SIZE = 46;
+    private static final double HEX_SIZE = 72;
+
+    // --- SAND TUNING ---
+    // Width of the sand image in pixels. Height is derived automatically (preserveRatio).
+    // Increase to make the sand bigger, decrease to shrink it.
+    private static final double SAND_SIZE = 690;
     private static final double SQRT3 = Math.sqrt(3);
     private static final double HEX_W = SQRT3 * HEX_SIZE;
     private static final double HEX_H = 2 * HEX_SIZE;
@@ -57,6 +65,14 @@ public final class HexBoard extends Pane {
         new Harbor("Pisang",  "2:1", Color.web("#ffd23d"), -260, -240),
         new Harbor("Umum",    "3:1", Color.web("#bcd6df"), 150,  -310),
     };
+
+    // --- BRIDGE TUNING ---
+    // Width of the bridge image in pixels.
+    private static final double BRIDGE_W = 72;
+    // Height of the bridge image in pixels.
+    private static final double BRIDGE_H = 20;
+    // How far (px) the bridge midpoint is from the harbor center, toward the island.
+    private static final double BRIDGE_OFFSET = 48;
 
     public HexBoard(double width, double height) {
         setPrefSize(width, height);
@@ -193,37 +209,32 @@ public final class HexBoard extends Pane {
     }
 
     private void buildIsland(double w, double h) {
-        double cx = w / 2;
-        double cy = h / 2;
-        Path shadow = wobblyRing(cx, cy + 16, 380, 320, 0.06, 17);
-        shadow.setFill(Color.web("#8a5a14", 0.35));
-        shadow.setStroke(null);
-        getChildren().add(shadow);
-
-        Path ring = wobblyRing(cx, cy + 8, 380, 320, 0.06, 13);
-        ring.setFill(Color.web("#e8c882"));
-        ring.setStroke(Color.web("#a67d36"));
-        ring.setStrokeWidth(3);
-        ring.setEffect(new DropShadow(20, Color.web("#06294a", 0.5)));
-        getChildren().add(ring);
+        var stream = getClass().getResourceAsStream("/images/board/tiles/SAND.png");
+        if (stream == null) return;
+        Image sandImg = new Image(stream);
+        ImageView sandView = new ImageView(sandImg);
+        double imgH = sandImg.getHeight() == 0 ? SAND_SIZE
+            : SAND_SIZE * sandImg.getHeight() / sandImg.getWidth();
+        sandView.setFitWidth(SAND_SIZE);
+        sandView.setFitHeight(imgH);
+        sandView.setPreserveRatio(false);
+        sandView.setSmooth(true);
+        sandView.setX(w / 2 - SAND_SIZE / 2);
+        sandView.setY(h / 2 - imgH / 2);
+        getChildren().add(sandView);
     }
 
-    private Path wobblyRing(double cx, double cy, double rx, double ry,
-                            double wobble, long seed) {
-        java.util.Random rng = new java.util.Random(seed);
-        int steps = 60;
-        java.util.List<PathElement> elems = new java.util.ArrayList<>(steps + 2);
-        for (int i = 0; i <= steps; i++) {
-            double t = (2 * Math.PI * i) / steps;
-            double noise = 1 + (rng.nextDouble() - 0.5) * wobble;
-            double x = cx + Math.cos(t) * rx * noise;
-            double y = cy + Math.sin(t) * ry * noise;
-            elems.add(i == 0 ? new MoveTo(x, y) : new LineTo(x, y));
+    private List<double[]> hexCenters(double cx, double cy) {
+        List<double[]> list = new ArrayList<>();
+        for (int r = 0; r < ROW_COLS.length; r++) {
+            int cols = ROW_COLS[r];
+            double y = cy + (r - 2) * HEX_H * 0.75;
+            double xOffset = -(cols - 1) / 2.0 * HEX_W;
+            for (int c = 0; c < cols; c++) {
+                list.add(new double[]{cx + xOffset + c * HEX_W, y});
+            }
         }
-        elems.add(new ClosePath());
-        Path p = new Path();
-        p.getElements().addAll(elems);
-        return p;
+        return list;
     }
 
     private void buildHexes(double w, double h) {
@@ -242,12 +253,44 @@ public final class HexBoard extends Pane {
         }
     }
 
+    private static final Image BRIDGE_IMG;
+    static {
+        var s = HexBoard.class.getResourceAsStream("/images/board/harbors/Bridge.png");
+        BRIDGE_IMG = s != null ? new Image(s) : null;
+    }
+
     private void buildHarbors(double w, double h) {
         double cx = w / 2;
         double cy = h / 2;
         for (Harbor harbor : HARBORS) {
+            if (harbor.dx != 0 || harbor.dy != 0) {
+                drawBridge(cx + harbor.dx, cy + harbor.dy, harbor.dx, harbor.dy);
+            }
             drawHarbor(cx + harbor.dx, cy + harbor.dy, harbor);
         }
+    }
+
+    private void drawBridge(double hx, double hy, double dx, double dy) {
+        if (BRIDGE_IMG == null) return;
+        // angle pointing from harbor toward island center
+        double angleRad = Math.atan2(-dy, -dx);
+        double angleDeg = Math.toDegrees(angleRad);
+
+        // midpoint of the bridge sits BRIDGE_OFFSET px inward from harbor center
+        double midX = hx + Math.cos(angleRad) * BRIDGE_OFFSET;
+        double midY = hy + Math.sin(angleRad) * BRIDGE_OFFSET;
+
+        ImageView bridge = new ImageView(BRIDGE_IMG);
+        bridge.setFitWidth(BRIDGE_W);
+        bridge.setFitHeight(BRIDGE_H);
+        bridge.setPreserveRatio(false);
+        bridge.setSmooth(true);
+        // position so the image center aligns with midpoint
+        bridge.setX(midX - BRIDGE_W / 2);
+        bridge.setY(midY - BRIDGE_H / 2);
+        // rotate around its own center
+        bridge.setRotate(angleDeg);
+        getChildren().add(bridge);
     }
 
     private void drawHarbor(double cx, double cy, Harbor h) {
@@ -296,59 +339,52 @@ public final class HexBoard extends Pane {
     }
 
     private void drawHex(double cx, double cy, Terrain terrain, Integer number) {
-        Polygon side = makeHex(cx, cy + 6, HEX_SIZE);
-        side.setFill(terrain.edge);
-        side.setStroke(Color.color(0, 0, 0, 0.35));
-        side.setStrokeWidth(0.5);
-        getChildren().add(side);
-
         Polygon hex = makeHex(cx, cy, HEX_SIZE);
-        hex.setFill(terrain.fill);
-        hex.setStroke(terrain.edge);
-        hex.setStrokeWidth(2);
-        hex.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        Image img = TILE_IMAGES.get(terrain);
+        if (img != null) {
+            hex.setFill(new ImagePattern(img));
+        } else {
+            hex.setFill(terrain.fill);
+        }
+        hex.setStroke(null);
         getChildren().add(hex);
 
-        drawTerrainGlyph(cx, cy, terrain);
+        if (img == null) {
+            drawTerrainGlyph(cx, cy, terrain);
+        }
 
+        double tokenCy = cy + 20;
         if (number != null) {
-            Circle token = new Circle(cx, cy, 14);
+            Circle token = new Circle(cx, tokenCy, 14);
             boolean hot = number == 6 || number == 8;
             token.setFill(Color.web("#fff3d6"));
             token.setStroke(hot ? Color.web("#b9281b") : Color.web("#5a3a1c"));
             token.setStrokeWidth(1.5);
-            token.setEffect(new DropShadow(4, Color.color(0, 0, 0, 0.45)));
             getChildren().add(token);
 
             Text num = new Text(String.valueOf(number));
             num.setFont(Font.font("Georgia", FontWeight.BOLD, hot ? 16 : 14));
             num.setFill(hot ? Color.web("#b9281b") : Color.web("#2a1a05"));
             num.setTextAlignment(TextAlignment.CENTER);
-            num.setX(cx - num.getLayoutBounds().getWidth() / 2);
-            num.setY(cy + 5);
+            var b = num.getLayoutBounds();
+            num.setX(cx - b.getWidth() / 2);
+            num.setY(tokenCy - b.getHeight() / 2 - b.getMinY());
             getChildren().add(num);
         } else {
-            Circle cage = new Circle(cx, cy, 14);
+            Circle cage = new Circle(cx, tokenCy, 14);
             cage.setFill(Color.web("#7e3fb8"));
             cage.setStroke(Color.web("#1a1108"));
             cage.setStrokeWidth(2);
-            cage.setEffect(new DropShadow(6, Color.color(0, 0, 0, 0.5)));
             getChildren().add(cage);
             Text label = new Text("N");
             label.setFont(Font.font("Georgia", FontWeight.BOLD, 14));
             label.setFill(Color.WHITE);
-            label.setX(cx - 4);
-            label.setY(cy + 5);
+            var b = label.getLayoutBounds();
+            label.setX(cx - b.getWidth() / 2);
+            label.setY(tokenCy - b.getHeight() / 2 - b.getMinY());
             getChildren().add(label);
         }
 
-        Text terrainLabel = new Text(terrain.label);
-        terrainLabel.setFont(Font.font("Inter", FontWeight.BOLD, 7));
-        terrainLabel.setFill(Color.web("#2a1a05", 0.7));
-        double tw = terrainLabel.getLayoutBounds().getWidth();
-        terrainLabel.setX(cx - tw / 2);
-        terrainLabel.setY(cy + 24);
-        getChildren().add(terrainLabel);
     }
 
     private void drawTerrainGlyph(double cx, double cy, Terrain terrain) {
@@ -574,20 +610,34 @@ public final class HexBoard extends Pane {
         return p;
     }
 
+    private static final Map<Terrain, Image> TILE_IMAGES = new EnumMap<>(Terrain.class);
+
+    static {
+        for (Terrain t : Terrain.values()) {
+            var stream = HexBoard.class.getResourceAsStream(t.imagePath);
+            if (stream != null) {
+                TILE_IMAGES.put(t, new Image(stream));
+            }
+        }
+    }
+
     private enum Terrain {
-        HUTAN  ("#3a9648", "#175a25", "Hutan"),
-        BUKIT  ("#d56a3a", "#7a2f12", "Bukit"),
-        LADANG ("#ffd864", "#c2901c", "Ladang"),
-        TAMBANG("#9a9a92", "#4a4a44", "Tambang"),
-        KEBUN  ("#6cbf48", "#2f6e1f", "Kebun Pisang"),
-        GURUN  ("#f1d588", "#b58b3a", "Gurun");
+        HUTAN  ("#3a9648", "#175a25", "Hutan",       "/images/board/tiles/Hutan.png"),
+        BUKIT  ("#d56a3a", "#7a2f12", "Bukit",        "/images/board/tiles/Bukit.png"),
+        LADANG ("#ffd864", "#c2901c", "Ladang",       "/images/board/tiles/Ladang.png"),
+        TAMBANG("#9a9a92", "#4a4a44", "Tambang",      "/images/board/tiles/Gunung.png"),
+        KEBUN  ("#6cbf48", "#2f6e1f", "Kebun Pisang", "/images/board/tiles/KebunPisang.png"),
+        GURUN  ("#f1d588", "#b58b3a", "Gurun",        "/images/board/tiles/Gurun.png");
 
         final Color fill, edge;
         final String label;
-        Terrain(String fill, String edge, String label) {
+        final String imagePath;
+
+        Terrain(String fill, String edge, String label, String imagePath) {
             this.fill = Color.web(fill);
             this.edge = Color.web(edge);
             this.label = label;
+            this.imagePath = imagePath;
         }
     }
 
