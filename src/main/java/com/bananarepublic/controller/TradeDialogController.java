@@ -8,6 +8,7 @@ import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.service.trade.MaritimeTradeRequest;
 import com.bananarepublic.service.trade.TradeOffer;
 import com.bananarepublic.service.trade.TradeResult;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
@@ -174,6 +175,7 @@ public class TradeDialogController {
                 }
             }
 
+            AudioEngine.get().playSfx(AudioEngine.Sfx.TRADE);
             GameController gameController = GameSession.getGameController();
             if (gameController != null) {
                 gameController.log("[Trade] " + result.getMessage());

@@ -1,7 +1,8 @@
 package com.bananarepublic.controller;
 
-import com.bananarepublic.ui.Navigator;
+import com.bananarepublic.ui.AudioEngine;
 import com.bananarepublic.ui.GameSession;
+import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -112,6 +113,7 @@ public class StealDialogController {
     private void onConfirm() {
         try {
             if (selectedPlayerId != null) {
+                AudioEngine.get().playSfx(AudioEngine.Sfx.DAGGER);
                 GameSession.engine().stealAfterSeven(selectedPlayerId);
             } else {
                 GameSession.engine().finishNimonAfterSevenWithoutSteal();
