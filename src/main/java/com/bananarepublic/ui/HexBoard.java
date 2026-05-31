@@ -21,6 +21,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -67,12 +68,12 @@ public final class HexBoard extends Pane {
     };
 
     // --- BRIDGE TUNING ---
-    // Width of the bridge image in pixels.
-    private static final double BRIDGE_W = 72;
-    // Height of the bridge image in pixels.
-    private static final double BRIDGE_H = 20;
-    // How far (px) the bridge midpoint is from the harbor center, toward the island.
-    private static final double BRIDGE_OFFSET = 48;
+    // Height of each bridge image in pixels (thickness of the plank).
+    private static final double BRIDGE_H = 14;
+    // Gap (px) between the hex corner and the start of the bridge.
+    private static final double BRIDGE_GAP = 4;
+    // Gap (px) between the end of the bridge and the harbor sign center.
+    private static final double BRIDGE_END_GAP = 18;
 
     public HexBoard(double width, double height) {
         setPrefSize(width, height);
@@ -263,79 +264,116 @@ public final class HexBoard extends Pane {
         double cx = w / 2;
         double cy = h / 2;
         for (Harbor harbor : HARBORS) {
-            if (harbor.dx != 0 || harbor.dy != 0) {
-                drawBridge(cx + harbor.dx, cy + harbor.dy, harbor.dx, harbor.dy);
-            }
-            drawHarbor(cx + harbor.dx, cy + harbor.dy, harbor);
+            double hx = cx + harbor.dx;
+            double hy = cy + harbor.dy;
+            drawBridges(cx, cy, hx, hy);
+            drawHarbor(hx, hy, harbor);
         }
     }
 
-    private void drawBridge(double hx, double hy, double dx, double dy) {
+    private void drawBridges(double boardCx, double boardCy, double hx, double hy) {
         if (BRIDGE_IMG == null) return;
-        // angle pointing from harbor toward island center
-        double angleRad = Math.atan2(-dy, -dx);
-        double angleDeg = Math.toDegrees(angleRad);
+        // Find the actual nearest hex center from the full board layout
+        double[] nearest = hexCenters(boardCx, boardCy).stream()
+            .min(Comparator.comparingDouble(c -> Math.hypot(c[0] - hx, c[1] - hy)))
+            .orElse(null);
+        if (nearest == null) return;
 
-        // midpoint of the bridge sits BRIDGE_OFFSET px inward from harbor center
-        double midX = hx + Math.cos(angleRad) * BRIDGE_OFFSET;
-        double midY = hy + Math.sin(angleRad) * BRIDGE_OFFSET;
+        double hexCx = nearest[0];
+        double hexCy = nearest[1];
+
+        // Direction from hex center toward harbor
+        double toHarborRad = Math.atan2(hy - hexCy, hx - hexCx);
+
+        // The coastal edge facing the harbor has its two corners at
+        // toHarborRad ± 30° from hex center, at radius HEX_SIZE.
+        // (pointy-top hex: each edge spans 60°, so each corner is ±30° from edge normal)
+        double cAx = hexCx + Math.cos(toHarborRad + Math.toRadians(30)) * HEX_SIZE;
+        double cAy = hexCy + Math.sin(toHarborRad + Math.toRadians(30)) * HEX_SIZE;
+        double cBx = hexCx + Math.cos(toHarborRad - Math.toRadians(30)) * HEX_SIZE;
+        double cBy = hexCy + Math.sin(toHarborRad - Math.toRadians(30)) * HEX_SIZE;
+
+        placeBridge(hx, hy, cAx, cAy);
+        placeBridge(hx, hy, cBx, cBy);
+    }
+
+    private void placeBridge(double hx, double hy, double cornerX, double cornerY) {
+        // Bridge runs straight from corner to harbor; angle = direction corner→harbor
+        double angleRad = Math.atan2(hy - cornerY, hx - cornerX);
+        double startX = cornerX + Math.cos(angleRad) * BRIDGE_GAP;
+        double startY = cornerY + Math.sin(angleRad) * BRIDGE_GAP;
+        double endX   = hx     - Math.cos(angleRad) * BRIDGE_END_GAP;
+        double endY   = hy     - Math.sin(angleRad) * BRIDGE_END_GAP;
+        double len    = Math.hypot(endX - startX, endY - startY);
+        double midX   = (startX + endX) / 2;
+        double midY   = (startY + endY) / 2;
 
         ImageView bridge = new ImageView(BRIDGE_IMG);
-        bridge.setFitWidth(BRIDGE_W);
+        bridge.setFitWidth(len);
         bridge.setFitHeight(BRIDGE_H);
         bridge.setPreserveRatio(false);
         bridge.setSmooth(true);
-        // position so the image center aligns with midpoint
-        bridge.setX(midX - BRIDGE_W / 2);
+        bridge.setX(midX - len / 2);
         bridge.setY(midY - BRIDGE_H / 2);
-        // rotate around its own center
-        bridge.setRotate(angleDeg);
+        bridge.setRotate(Math.toDegrees(angleRad));
         getChildren().add(bridge);
     }
 
     private void drawHarbor(double cx, double cy, Harbor h) {
-        Rectangle dock = new Rectangle(cx - 26, cy - 8, 52, 16);
+        // Build all elements in local coords (sign faces "up" = outward by default),
+        // then rotate the whole group so it faces away from the island.
+        Group g = new Group();
+
+        // Dock (horizontal bar at origin)
+        Rectangle dock = new Rectangle(-26, -8, 52, 16);
         dock.setArcWidth(4); dock.setArcHeight(4);
         dock.setFill(Color.web("#a35a14"));
         dock.setStroke(Color.web("#5a2f0a"));
         dock.setStrokeWidth(1.5);
-        dock.setEffect(new DropShadow(4, Color.color(0, 0, 0, 0.4)));
-        getChildren().add(dock);
+        g.getChildren().add(dock);
 
         for (int i = 0; i < 4; i++) {
-            Line plank = new Line(cx - 22 + i * 14, cy - 6, cx - 22 + i * 14, cy + 6);
+            Line plank = new Line(-22 + i * 14, -6, -22 + i * 14, 6);
             plank.setStroke(Color.web("#5a2f0a", 0.6));
             plank.setStrokeWidth(1);
-            getChildren().add(plank);
+            g.getChildren().add(plank);
         }
 
-        Rectangle post = new Rectangle(cx - 2, cy - 22, 4, 14);
+        // Post going upward (outward direction)
+        Rectangle post = new Rectangle(-2, -22, 4, 14);
         post.setFill(Color.web("#5a2f0a"));
-        getChildren().add(post);
+        g.getChildren().add(post);
 
-        Rectangle sign = new Rectangle(cx - 22, cy - 30, 44, 18);
+        // Sign above post
+        Rectangle sign = new Rectangle(-22, -40, 44, 18);
         sign.setArcWidth(4); sign.setArcHeight(4);
         sign.setFill(h.color);
         sign.setStroke(Color.web("#3a1d0a"));
         sign.setStrokeWidth(1.2);
-        sign.setEffect(new DropShadow(3, Color.color(0, 0, 0, 0.35)));
-        getChildren().add(sign);
+        g.getChildren().add(sign);
 
         Text label = new Text(h.label);
         label.setFont(Font.font("Inter", FontWeight.BOLD, 8));
         label.setFill(Color.web("#2a1a05"));
-        double lw = label.getLayoutBounds().getWidth();
-        label.setX(cx - lw / 2);
-        label.setY(cy - 20);
-        getChildren().add(label);
+        label.setX(-label.getLayoutBounds().getWidth() / 2);
+        label.setY(-29);
+        g.getChildren().add(label);
 
         Text ratio = new Text(h.ratio);
         ratio.setFont(Font.font("Inter", FontWeight.BOLD, 10));
         ratio.setFill(Color.web("#2a1a05"));
-        double rw = ratio.getLayoutBounds().getWidth();
-        ratio.setX(cx - rw / 2);
-        ratio.setY(cy - 10);
-        getChildren().add(ratio);
+        ratio.setX(-ratio.getLayoutBounds().getWidth() / 2);
+        ratio.setY(-19);
+        g.getChildren().add(ratio);
+
+        // Rotate so sign faces outward from island.
+        // Default orientation = sign faces up (-Y). outwardDeg from atan2(dy,dx).
+        // Rotation to align "up" with outward direction = outwardDeg + 90.
+        double outwardDeg = Math.toDegrees(Math.atan2(h.dy, h.dx));
+        g.setRotate(outwardDeg + 90);
+        g.setTranslateX(cx);
+        g.setTranslateY(cy);
+        getChildren().add(g);
     }
 
     private void drawHex(double cx, double cy, Terrain terrain, Integer number) {
@@ -499,18 +537,57 @@ public final class HexBoard extends Pane {
         double cx = w / 2;
         double cy = h / 2;
 
-        drawPipe(cx - HEX_W / 2, cy - HEX_SIZE,       cx,             cy - HEX_SIZE * 1.3, PColor.RED);
-        drawPipe(cx + HEX_W / 2, cy - HEX_SIZE * 0.8, cx + HEX_W,     cy - HEX_SIZE,       PColor.RED);
-        drawPipe(cx,             cy + HEX_SIZE * 0.5, cx + HEX_W / 2, cy + HEX_SIZE * 0.8, PColor.BLUE);
-        drawPipe(cx - HEX_W,     cy + HEX_SIZE * 0.6, cx - HEX_W * 0.5, cy + HEX_SIZE,     PColor.GOLD);
-        drawPipe(cx + HEX_W * 0.5, cy + HEX_SIZE * 1.3, cx + HEX_W,   cy + HEX_SIZE * 1.1, PColor.GOLD);
+        // Helper: get corner pixel of hex at (hcx, hcy), corner index 0-5
+        // pointy-top: corner i = angle 60*i - 90 degrees
+        // corner(hcx, hcy, i) = (hcx + HEX_SIZE*cos(60i-90°), hcy + HEX_SIZE*sin(60i-90°))
 
-        drawWatchPost(cx + HEX_W * 0.5,  cy - HEX_SIZE * 1.5, PColor.RED);
-        drawWatchPost(cx - HEX_W * 0.5,  cy + HEX_SIZE * 0.5, PColor.BLUE);
-        drawWatchPost(cx + HEX_W,        cy + HEX_SIZE,       PColor.GOLD);
-        drawWatchPost(cx - HEX_W * 1.5,  cy,                  PColor.WHITE);
+        // Hex centers for reference (row, col within that row, 0-indexed)
+        // Row 0 (3 tiles): cols 0,1,2
+        // Row 1 (4 tiles): cols 0,1,2,3
+        // Row 2 (5 tiles): cols 0,1,2,3,4  ← middle row
+        // Row 3 (4 tiles): cols 0,1,2,3
+        // Row 4 (3 tiles): cols 0,1,2
 
-        drawLab(cx + HEX_W * 0.5, cy - HEX_SIZE * 0.6, PColor.RED);
+        // Sample pipes on actual hex edges using real corner positions
+        // Each pipe = one edge of a hex = corner i to corner (i+1)%6
+
+        // Middle row hex 2 (center hex), edge 0 (top-right: corner0→corner1)
+        drawPipeEdge(cx, cy, 0, PColor.RED);
+        // Middle row hex 2, edge 5 (top-left: corner5→corner0)
+        drawPipeEdge(cx, cy, 5, PColor.RED);
+        // Hex to the right of center, edge 4 (bottom-left)
+        drawPipeEdge(cx + HEX_W, cy, 4, PColor.BLUE);
+        // Hex above-right of center (row1 col2), edge 2 (bottom-right)
+        drawPipeEdge(cx + HEX_W / 2, cy - HEX_H * 0.75, 2, PColor.BLUE);
+        // Hex above-left of center (row1 col1), edge 3 (bottom)
+        drawPipeEdge(cx - HEX_W / 2, cy - HEX_H * 0.75, 3, PColor.GOLD);
+
+        // Intersections (corners) for buildings — use actual corner positions
+        double[] c0 = hexCorner(cx, cy, 0); // top of center hex
+        double[] c5 = hexCorner(cx, cy, 5); // top-left of center hex
+        double[] c1r = hexCorner(cx + HEX_W, cy, 5); // shared corner right hex
+        double[] c2ur = hexCorner(cx + HEX_W / 2, cy - HEX_H * 0.75, 2);
+        double[] c3ul = hexCorner(cx - HEX_W / 2, cy - HEX_H * 0.75, 3);
+
+        drawWatchPost(c0[0], c0[1], PColor.RED);
+        drawWatchPost(c5[0], c5[1], PColor.BLUE);
+        drawWatchPost(c1r[0], c1r[1], PColor.GOLD);
+        drawWatchPost(c3ul[0], c3ul[1], PColor.WHITE);
+        drawLab(c2ur[0], c2ur[1], PColor.RED);
+    }
+
+    // Returns pixel position of corner i for a hex centered at (hcx, hcy)
+    private double[] hexCorner(double hcx, double hcy, int i) {
+        double a = Math.toRadians(60.0 * i - 90.0);
+        return new double[]{hcx + HEX_SIZE * Math.cos(a), hcy + HEX_SIZE * Math.sin(a)};
+    }
+
+    // Draws a pipe along edge i of the hex centered at (hcx, hcy)
+    // Edge i connects corner i to corner (i+1)%6
+    private void drawPipeEdge(double hcx, double hcy, int edge, PColor color) {
+        double[] a = hexCorner(hcx, hcy, edge);
+        double[] b = hexCorner(hcx, hcy, (edge + 1) % 6);
+        drawPipe(a[0], a[1], b[0], b[1], color);
     }
 
     private void drawPipe(double x1, double y1, double x2, double y2, PColor color) {
