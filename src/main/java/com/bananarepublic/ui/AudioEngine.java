@@ -91,8 +91,12 @@ public final class AudioEngine {
     // ── SFX ──────────────────────────────────────────────────────────────────
 
     public void playSfx(Sfx sfx) {
+        playSfx(sfx, -1);
+    }
+
+    // stopAfterMillis <= 0 means play to end
+    public void playSfx(Sfx sfx, double stopAfterMillis) {
         if (muted) return;
-        // Always create MediaPlayer on the FX thread
         runOnFx(() -> {
             Media media = loadMedia(sfx.path);
             if (media == null) {
@@ -101,10 +105,13 @@ public final class AudioEngine {
             }
             MediaPlayer player = new MediaPlayer(media);
             player.setVolume(sfxVolume);
+            if (stopAfterMillis > 0) {
+                player.setStopTime(javafx.util.Duration.millis(stopAfterMillis));
+            }
             player.setOnError(() -> System.err.println(
                     "[AudioEngine] SFX error (" + sfx.path + "): " + player.getError()));
-            // Fire-and-forget: dispose when done
             player.setOnEndOfMedia(() -> runOnFx(player::dispose));
+            player.setOnStopped(() -> runOnFx(player::dispose));
             player.play();
         });
     }

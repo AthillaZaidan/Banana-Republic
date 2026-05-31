@@ -888,7 +888,6 @@ public class GameController {
 
     private void resolveStartingOrderRoll(DiceDialogResult result) {
         PlayerConfig contender = startingOrderContenders.get(startingOrderRollIndex);
-        AudioEngine.get().playSfx(AudioEngine.Sfx.DICE);
         DiceRoll roll = result.mode() == DiceMode.RANDOM ? randomRoll() : result.manualRoll();
         animateDiceRoll(roll, contender.getName() + " rolled", () -> {
             log("[Start Roll] " + contender.getName() + " rolled "
@@ -947,8 +946,7 @@ public class GameController {
         String playerName = state.getCurrentPlayer().getName();
 
         try {
-            AudioEngine.get().playSfx(AudioEngine.Sfx.DICE);
-            DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
+                DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
             animateDiceRoll(roll, playerName + " rolled", () -> {
                 log("[Roll] " + playerName + " rolled "
                         + roll.getFirst() + " + " + roll.getSecond()

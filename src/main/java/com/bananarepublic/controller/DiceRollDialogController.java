@@ -79,7 +79,7 @@ public class DiceRollDialogController {
 
     @FXML
     private void onConfirm() {
-        AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
+        AudioEngine.get().playSfx(AudioEngine.Sfx.DICE, 700);
         DiceDialogResult result = manualMode
                 ? new DiceDialogResult(DiceMode.MANUAL, DiceRoll.of(firstDieValue, secondDieValue))
                 : new DiceDialogResult(DiceMode.RANDOM, null);
