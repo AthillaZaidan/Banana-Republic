@@ -58,6 +58,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.shape.StrokeType;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Scale;
 import javafx.scene.transform.Translate;
@@ -118,7 +120,7 @@ public class GameController {
 
     private static final double BOARD_DESIGN_W = 900;
     private static final double BOARD_DESIGN_H = 780;
-    private static final double BOARD_MIN_SCALE = 0.25;
+    private static final double BG_MULT = 4.0;
     private static final double BOARD_MAX_SCALE = 3.0;
     private static final double ZOOM_FACTOR = 1.10;
 
@@ -150,7 +152,8 @@ public class GameController {
     @FXML
     public void initialize() {
         GameSession.setGameController(this);
-        LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
+        // livingLayer kept for API compat but game-screen world elements go into boardCanvas below
+        livingLayer.setMouseTransparent(true);
         AudioEngine.get().playGameBgm();
         dicePanel.setCursor(javafx.scene.Cursor.HAND);
         configureSidebarHoverZones();
@@ -161,8 +164,28 @@ public class GameController {
         boardSelectionLayer.setPickOnBounds(false);
         boardSelectionLayer.setMouseTransparent(false);
         boardSelectionLayer.setPrefSize(BOARD_DESIGN_W, BOARD_DESIGN_H);
-        boardCanvas = new Group(board, boardSelectionLayer);
+
+        // OCEAN.png fills a large area centered on the board so it never shows edges during zoom/pan
+        double bgW = BOARD_DESIGN_W * 4.0;
+        double bgH = BOARD_DESIGN_H * 4.0;
+        ImageView oceanBg = new ImageView();
+        try (var stream = getClass().getResourceAsStream("/images/background/OCEAN.png")) {
+            if (stream != null) {
+                oceanBg.setImage(new Image(stream));
+            }
+        } catch (Exception ignored) {}
+        oceanBg.setFitWidth(bgW);
+        oceanBg.setFitHeight(bgH);
+        oceanBg.setPreserveRatio(false);
+        oceanBg.setX(-BOARD_DESIGN_W * 1.5);
+        oceanBg.setY(-BOARD_DESIGN_H * 1.5);
+        oceanBg.setMouseTransparent(true);
+
+        boardCanvas = new Group(oceanBg, board, boardSelectionLayer);
         boardCanvas.getTransforms().addAll(canvasTranslate, canvasScale);
+
+        // Attach animated world-space elements (clouds, gulls, ships) into boardCanvas
+        LivingBackground.attachToCanvas(boardCanvas, BOARD_DESIGN_W, BOARD_DESIGN_H);
 
         Pane canvasPane = new Pane(boardCanvas);
         canvasPane.setStyle("-fx-background-color: transparent;");
@@ -1316,6 +1339,12 @@ public class GameController {
         };
     }
 
+    private double computeMinScale(double availW, double availH) {
+        double minByW = availW / (BG_MULT * BOARD_DESIGN_W);
+        double minByH = availH / (BG_MULT * BOARD_DESIGN_H);
+        return Math.max(minByW, minByH);
+    }
+
     private void fitBoard() {
         double availW = boardHolder.getWidth()
                 - boardHolder.getPadding().getLeft() - boardHolder.getPadding().getRight();
@@ -1325,8 +1354,9 @@ public class GameController {
             return;
         }
 
+        double minScale = computeMinScale(availW, availH);
         double scale = Math.min(availW / BOARD_DESIGN_W, availH / BOARD_DESIGN_H);
-        scale = Math.max(BOARD_MIN_SCALE, Math.min(scale, BOARD_MAX_SCALE));
+        scale = Math.max(minScale, Math.min(scale, BOARD_MAX_SCALE));
         canvasScale.setX(scale);
         canvasScale.setY(scale);
         canvasTranslate.setX((availW - BOARD_DESIGN_W * scale) / 2 + boardHolder.getPadding().getLeft());
@@ -1334,13 +1364,20 @@ public class GameController {
     }
 
     private void applyZoom(double factor, double pivotX, double pivotY) {
+        double availW = boardHolder.getWidth();
+        double availH = boardHolder.getHeight();
+        double minScale = availW > 0 && availH > 0 ? computeMinScale(availW, availH) : 0.1;
+
         double oldScale = canvasScale.getX();
-        double newScale = Math.max(BOARD_MIN_SCALE, Math.min(oldScale * factor, BOARD_MAX_SCALE));
+        double newScale = Math.max(minScale, Math.min(oldScale * factor, BOARD_MAX_SCALE));
         double ratio = newScale / oldScale;
-        canvasTranslate.setX(pivotX - ratio * (pivotX - canvasTranslate.getX()));
-        canvasTranslate.setY(pivotY - ratio * (pivotY - canvasTranslate.getY()));
+        double tx = pivotX - ratio * (pivotX - canvasTranslate.getX());
+        double ty = pivotY - ratio * (pivotY - canvasTranslate.getY());
+        double[] clamped = clampTranslate(tx, ty, newScale);
         canvasScale.setX(newScale);
         canvasScale.setY(newScale);
+        canvasTranslate.setX(clamped[0]);
+        canvasTranslate.setY(clamped[1]);
     }
 
     private void onCanvasScroll(ScrollEvent event) {
@@ -1368,9 +1405,29 @@ public class GameController {
 
     private void onCanvasDragged(MouseEvent event) {
         if (event.getButton() == MouseButton.PRIMARY || event.getButton() == MouseButton.MIDDLE) {
-            canvasTranslate.setX(translateStartX + (event.getSceneX() - dragStartX));
-            canvasTranslate.setY(translateStartY + (event.getSceneY() - dragStartY));
+            double tx = translateStartX + (event.getSceneX() - dragStartX);
+            double ty = translateStartY + (event.getSceneY() - dragStartY);
+            double[] clamped = clampTranslate(tx, ty, canvasScale.getX());
+            canvasTranslate.setX(clamped[0]);
+            canvasTranslate.setY(clamped[1]);
         }
+    }
+
+    private double[] clampTranslate(double tx, double ty, double scale) {
+        double vw = boardHolder.getWidth();
+        double vh = boardHolder.getHeight();
+        double bgX = -1.5 * BOARD_DESIGN_W;
+        double bgY = -1.5 * BOARD_DESIGN_H;
+        double bgW = BG_MULT * BOARD_DESIGN_W;
+        double bgH = BG_MULT * BOARD_DESIGN_H;
+        double minTx = -(bgX + bgW) * scale + vw;
+        double maxTx = -bgX * scale;
+        double minTy = -(bgY + bgH) * scale + vh;
+        double maxTy = -bgY * scale;
+        return new double[]{
+            Math.max(minTx, Math.min(tx, maxTx)),
+            Math.max(minTy, Math.min(ty, maxTy))
+        };
     }
 
     private void installFrame() {
