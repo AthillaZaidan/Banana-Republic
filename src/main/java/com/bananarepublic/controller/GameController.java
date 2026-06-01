@@ -29,6 +29,7 @@ import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.WoodenFrame;
 import javafx.application.Platform;
+import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
@@ -581,6 +582,7 @@ public class GameController {
     }
 
     private void onRollDice() {
+        normalizeStaleDiceUiState();
         if (isBoardSelectionActive()) {
             showInfo("Placement Active", "Finish the current map placement first.");
             return;
@@ -933,12 +935,27 @@ public class GameController {
         syncTimerAndPhaseUi();
         trackedPlayerId = state.getCurrentPlayer().getId();
         trackedPhase = state.getTurnState().getPhase();
+        recoverMissedBotRollTrigger(state);
+    }
+
+    private void recoverMissedBotRollTrigger(GameState state) {
+        if (GameSession.isStartingOrderPending()
+                || diceAnimationRunning
+                || diceFlowContext != null
+                || state.getTurnState().getPhase() != TurnPhase.RESOURCE_GATHERING
+                || !GameSession.engine().isCurrentPlayerBot()) {
+            return;
+        }
+
+        queueBotAutomationIfNeeded();
     }
 
     private void syncTimerAndPhaseUi() {
         if (!GameSession.hasEngine()) {
             return;
         }
+
+        normalizeStaleDiceUiState();
 
         if (GameSession.isStartingOrderPending()) {
             timerValue.setText("--:--");
@@ -962,6 +979,15 @@ public class GameController {
         }
         updateTimerDisplay(remaining);
         updatePhaseUi(state);
+    }
+
+    private void normalizeStaleDiceUiState() {
+        if (diceAnimationRunning && (diceAnimation == null || diceAnimation.getStatus() != Animation.Status.RUNNING)) {
+            diceAnimationRunning = false;
+        }
+        if (diceFlowContext != null && GameSession.getDiceDialogRequest() == null && !diceAnimationRunning) {
+            diceFlowContext = null;
+        }
     }
 
     private void updateTimerDisplay(int remainingSeconds) {
@@ -1007,16 +1033,20 @@ public class GameController {
             return;
         }
 
-        phaseLabel.setText(switch (phase) {
-            case SETUP -> waitingForSetupPipe
-                    ? "Setup Phase: place the pipe connected to the new post."
-                    : "Setup Phase: place a monitoring post.";
-            case RESOURCE_GATHERING -> "Resource Gathering: roll dice.";
-            case DISCARD -> "A 7 was rolled: resolve mandatory discards.";
-            case MOVE_NIMON_UNGU -> "Move Nimon Ungu and resolve optional steal.";
-            case TRADE_BUILD -> "Trade / Build Phase";
-            case GAME_OVER -> "Game Over";
-        });
+        if (pendingBoardSelection != null && hasVisibleBoardSelectionTargets()) {
+            phaseLabel.setText(pendingBoardSelection.prompt());
+        } else {
+            phaseLabel.setText(switch (phase) {
+                case SETUP -> waitingForSetupPipe
+                        ? "Setup Phase: place the pipe connected to the new post."
+                        : "Setup Phase: place a monitoring post.";
+                case RESOURCE_GATHERING -> "Resource Gathering: roll dice.";
+                case DISCARD -> "A 7 was rolled: resolve mandatory discards.";
+                case MOVE_NIMON_UNGU -> "Move Nimon Ungu and resolve optional steal.";
+                case TRADE_BUILD -> "Trade / Build Phase";
+                case GAME_OVER -> "Game Over";
+            });
+        }
 
         buildPostBtn.setDisable(true);
         buildPipeBtn.setDisable(true);
@@ -1217,15 +1247,57 @@ public class GameController {
             return false;
         }
 
-        pendingBoardSelection = new PendingBoardSelection(type, List.copyOf(ids), prompt, onSelect, onCancel);
+        List<String> renderableIds = ids.stream()
+                .filter(id -> isSelectionRenderable(type, id))
+                .toList();
+        if (renderableIds.isEmpty()) {
+            showInfo("Unavailable", "No valid placement spots available on the current board view.");
+            return false;
+        }
+
+        pendingBoardSelection = new PendingBoardSelection(type, List.copyOf(renderableIds), prompt, onSelect, onCancel);
         renderBoardSelection();
+        if (!hasVisibleBoardSelectionTargets()) {
+            pendingBoardSelection = null;
+            renderBoardSelection();
+            showInfo("Unavailable", "Could not show placement markers on the board. Try the action again.");
+            return false;
+        }
         log("[Select] " + prompt + " Right-click on the map to cancel.");
         syncTimerAndPhaseUi();
         return true;
     }
 
     private boolean isBoardSelectionActive() {
-        return pendingBoardSelection != null;
+        if (pendingBoardSelection == null) {
+            return false;
+        }
+        if (!hasVisibleBoardSelectionTargets()) {
+            log("[Select] Cleared a stale map placement state.");
+            pendingBoardSelection = null;
+            renderBoardSelection();
+            syncTimerAndPhaseUi();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isSelectionRenderable(BoardSelectionType type, String id) {
+        if (!GameSession.hasEngine() || id == null || id.isBlank()) {
+            return false;
+        }
+        return switch (type) {
+            case INTERSECTION -> board.getIntersectionPoint(id) != null;
+            case TILE -> board.getTileCenter(id) != null;
+            case PATH -> {
+                Path path = GameSession.engine().getState().getBoard().getPath(id);
+                yield path != null && board.getPathSegment(path) != null;
+            }
+        };
+    }
+
+    private boolean hasVisibleBoardSelectionTargets() {
+        return boardSelectionLayer != null && boardSelectionLayer.getChildren().size() > 1;
     }
 
     private void renderBoardSelection() {
@@ -1677,7 +1749,7 @@ public class GameController {
                 switch (phase) {
                     case SETUP -> log("[Bot] " + engine.resolveBotSetupStep());
                     case RESOURCE_GATHERING -> {
-                        requestBotTurnRoll(state.getCurrentPlayer());
+                        autoRollForBotTurn();
                         refresh();
                         return;
                     }
@@ -1764,7 +1836,11 @@ public class GameController {
         if (startingOrderBaseConfig == null) {
             startingOrderBaseConfig = new GameConfig(
                     engine.getState().getPlayers().stream()
-                            .map(player -> new PlayerConfig(player.getName(), player.getColor()))
+                            .map(player -> new PlayerConfig(
+                                    player.getName(),
+                                    player.getColor(),
+                                    engine.isBotPlayer(player.getId())
+                            ))
                             .toList(),
                     BoardMode.FIXED,
                     engine.isManualDiceEnabled()
@@ -1785,6 +1861,10 @@ public class GameController {
 
         PlayerConfig contender = startingOrderContenders.get(startingOrderRollIndex);
         diceFlowContext = DiceFlowContext.STARTING_ORDER;
+        if (contender.isBotControlled()) {
+            Platform.runLater(() -> onDiceDialogResolved(new DiceDialogResult(DiceMode.RANDOM, null)));
+            return;
+        }
         showDiceDialog(
                 "DETERMINE FIRST PLAYER",
                 "Choose how " + contender.getName() + " will roll for starting order.",
@@ -1929,14 +2009,8 @@ public class GameController {
         return DiceRoll.of(1 + (int) (Math.random() * 6), 1 + (int) (Math.random() * 6));
     }
 
-    private void requestBotTurnRoll(Player bot) {
-        diceFlowContext = DiceFlowContext.NORMAL_TURN;
-        showDiceDialog(
-                "🎲  BOT ROLL",
-                "Choose how " + bot.getName() + " will roll.",
-                "ROLL FOR " + bot.getName().toUpperCase(),
-                GameSession.engine().isManualDiceEnabled()
-        );
+    private void autoRollForBotTurn() {
+        resolveNormalTurnRoll(new DiceDialogResult(DiceMode.RANDOM, null));
     }
 
     private void showInfo(String title, String message) {

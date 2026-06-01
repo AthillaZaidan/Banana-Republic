@@ -42,6 +42,7 @@ public class CardsDialogController {
     @FXML private Label emptyLabel;
     @FXML private Label buyHintLabel;
     @FXML private Button buyBtn;
+    @FXML private Button playBtn;
 
     private VBox selectedCardBox;
     private DevelopmentCard selectedCard;
@@ -77,6 +78,7 @@ public class CardsDialogController {
             emptyLabel.setText("Belum ada kartu di tangan. Beli kartu temuan!");
             emptyLabel.setVisible(true);
             refreshBuyButton();
+            refreshPlayButton();
             return;
         }
 
@@ -93,6 +95,7 @@ public class CardsDialogController {
             first = false;
         }
         refreshBuyButton();
+        refreshPlayButton();
     }
 
     private VBox buildCard(DevelopmentCard card, boolean isSelected) {
@@ -127,7 +130,10 @@ public class CardsDialogController {
         body.getChildren().addAll(iconBox, name, desc);
 
         boolean playableNow = isPlayableNow(card);
-        Label footer = new Label(playableNow ? "DAPAT DIMAINKAN" : "BELUM BISA");
+        String footerText = card instanceof VictoryPointCard
+                ? "TERSEMBUNYI HINGGA AKHIR"
+                : playableNow ? "DAPAT DIMAINKAN" : "BELUM BISA";
+        Label footer = new Label(footerText);
         footer.getStyleClass().add("exp-card-footer");
         if (!playableNow) footer.getStyleClass().add("is-passive");
         footer.setMaxWidth(Double.MAX_VALUE);
@@ -139,10 +145,11 @@ public class CardsDialogController {
 
     private boolean isPlayableNow(DevelopmentCard card) {
         if (!GameSession.hasEngine()) return false;
+        if (card instanceof VictoryPointCard) return false;
         var state = GameSession.engine().getState();
         var turnState = state.getTurnState();
         if (turnState.hasPlayedDevelopmentCard()) return false;
-        if (turnState.isNewlyBoughtCard(card.getId()) && !(card instanceof VictoryPointCard)) return false;
+        if (turnState.isNewlyBoughtCard(card.getId())) return false;
         return true;
     }
 
@@ -153,6 +160,7 @@ public class CardsDialogController {
         if (!box.getStyleClass().contains("is-selected")) {
             box.getStyleClass().add("is-selected");
         }
+        refreshPlayButton();
     }
 
     @FXML
@@ -181,6 +189,11 @@ public class CardsDialogController {
             showAlert("Pilih Kartu", "Pilih kartu yang ingin dimainkan.");
             return;
         }
+        if (selectedCard instanceof VictoryPointCard) {
+            showAlert("Kartu Rahasia", "Kartu Poin Prestasi Rahasia tetap tersembunyi di tangan sampai akhir permainan atau saat kamu menang.");
+            refreshPlayButton();
+            return;
+        }
         if (!GameSession.hasEngine()) {
             showAlert("Error", "Tidak ada engine aktif.");
             return;
@@ -193,10 +206,6 @@ public class CardsDialogController {
 
         try {
             switch (selectedCard) {
-                case VictoryPointCard vp -> {
-                    engine.playDevelopmentCard(playerId, cardId);
-                    logEvent(active.getName() + " memainkan Kartu Poin Prestasi Rahasia.");
-                }
                 case PluginExperimentCardAdapter plugin -> {
                     engine.playDevelopmentCard(playerId, cardId);
                     logEvent(active.getName() + " memainkan kartu eksperimen: " + plugin.getName());
@@ -387,6 +396,13 @@ public class CardsDialogController {
         if (buyHintLabel != null) {
             buyHintLabel.setText(blockReason == null ? "" : blockReason);
         }
+    }
+
+    private void refreshPlayButton() {
+        if (playBtn == null) {
+            return;
+        }
+        playBtn.setDisable(selectedCard == null || !isPlayableNow(selectedCard));
     }
 
     private HBox createBuyButtonGraphic() {

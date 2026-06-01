@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SaveLoadRoundTripTest {
@@ -96,6 +97,50 @@ class SaveLoadRoundTripTest {
         assertFalse(restoredEngine.isBotPlayer("P1"));
         assertTrue(restoredEngine.isBotPlayer("P2"));
         assertFalse(restoredEngine.isBotPlayer("P3"));
+    }
+
+    @Test
+    void roundTripRestoresBuiltInGreedyBotWithoutPluginJar() {
+        GameEngine originalEngine = new GameEngine();
+        originalEngine.startNewGame(new GameConfig(List.of(
+                new PlayerConfig("Stewart Bot", PlayerColor.RED, true),
+                new PlayerConfig("Gro", PlayerColor.BLUE),
+                new PlayerConfig("Kebin", PlayerColor.GREEN)
+        ), BoardMode.FIXED, true));
+
+        java.io.File saveFile = tempDir.resolve("builtin-greedy-bot.json").toFile();
+        originalEngine.saveGame(saveFile);
+
+        GameEngine restoredEngine = new GameEngine();
+        restoredEngine.loadGame(saveFile);
+
+        assertNull(restoredEngine.getActiveBotPluginJarPath());
+        assertTrue(restoredEngine.isBotPlayer("P1"));
+        assertFalse(restoredEngine.isBotPlayer("P2"));
+        assertFalse(restoredEngine.isBotPlayer("P3"));
+    }
+
+    @Test
+    void builtInGreedyBotBuysDevelopmentCardWhenThatIsBestAvailableAction() {
+        GameEngine engine = new GameEngine();
+        engine.startNewGame(new GameConfig(List.of(
+                new PlayerConfig("Stewart Bot", PlayerColor.RED, true),
+                new PlayerConfig("Gro", PlayerColor.BLUE),
+                new PlayerConfig("Kebin", PlayerColor.GREEN)
+        ), BoardMode.FIXED, true));
+
+        GameState state = engine.getState();
+        Player bot = state.getPlayers().get(0);
+        state.getTurnState().setCurrentPlayerIndex(0);
+        state.getTurnState().setPhase(TurnPhase.TRADE_BUILD);
+        bot.addResource(ResourceType.ORE, 1);
+        bot.addResource(ResourceType.BANANA, 1);
+        bot.addResource(ResourceType.WHEAT, 1);
+
+        String result = engine.executeBotTradeBuildAction();
+
+        assertEquals(1, bot.getHandCardCount());
+        assertTrue(result.contains("buy a development card"));
     }
 
     private GameEngine createConfiguredGame() {

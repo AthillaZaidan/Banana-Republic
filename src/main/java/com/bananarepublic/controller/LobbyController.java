@@ -43,8 +43,8 @@ public class LobbyController {
     @FXML private Label mapPluginLabel;
     @FXML private Label botPluginLabel;
     @FXML private Button startBtn;
-    @FXML private Pane mapPluginIconPane;
-    @FXML private Pane botPluginIconPane;
+    @FXML private StackPane mapPluginIconPane;
+    @FXML private StackPane botPluginIconPane;
 
     private final List<PlayerRow> rows = new ArrayList<>();
     private final Map<String, PlayerRow> selectedColorOwner = new LinkedHashMap<>();
@@ -56,6 +56,7 @@ public class LobbyController {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.PARCHMENT);
         mapPluginIconPane.getChildren().setAll(GameIcons.anchor());
         botPluginIconPane.getChildren().setAll(GameIcons.bot());
+        botPluginLabel.setText("Built-in Greedy Bot aktif. Pilih .jar untuk override.");
         playerCountBox.getItems().setAll(3, 4);
         playerCountBox.valueProperty().addListener((obs, oldV, newV) -> rebuildPlayerRows(newV));
         playerCountBox.setValue(4);
@@ -163,14 +164,6 @@ public class LobbyController {
                 row.index, name, row.selectedColor);
         }
 
-        boolean anyBotPlayer = rows.stream().anyMatch(row -> row.botToggle.isSelected());
-        if (anyBotPlayer && selectedBotPluginFile == null) {
-            showAlert("Bot Plugin Belum Dipilih",
-                    "Pilih file .jar bot terlebih dahulu sebelum menandai seat sebagai bot.",
-                    Alert.AlertType.ERROR);
-            return;
-        }
-
         Board boardOverride = null;
         BoardMode boardMode = BoardMode.FIXED;
         if (selectedMapPluginFile != null) {
@@ -184,14 +177,19 @@ public class LobbyController {
         }
 
         GameEngine engine = new GameEngine();
-        engine.startNewGame(new GameConfig(
-                configs,
-                boardMode,
-                true,
-                boardOverride,
-                selectedMapPluginFile == null ? null : selectedMapPluginFile.getAbsolutePath(),
-                selectedBotPluginFile == null ? null : selectedBotPluginFile.getAbsolutePath()
-        ));
+        try {
+            engine.startNewGame(new GameConfig(
+                    configs,
+                    boardMode,
+                    true,
+                    boardOverride,
+                    selectedMapPluginFile == null ? null : selectedMapPluginFile.getAbsolutePath(),
+                    selectedBotPluginFile == null ? null : selectedBotPluginFile.getAbsolutePath()
+            ));
+        } catch (PluginLoadException ex) {
+            showAlert("Gagal Memuat Bot Plugin", ex.getMessage(), Alert.AlertType.ERROR);
+            return;
+        }
         GameSession.resetForNewSession();
         GameSession.setEngine(engine);
         GameSession.markSessionStartNow();
@@ -200,13 +198,12 @@ public class LobbyController {
     }
 
     private void refreshBotAvailability() {
-        boolean enabled = selectedBotPluginFile != null;
         for (PlayerRow row : rows) {
-            row.botToggle.setDisable(!enabled);
-            if (!enabled) {
-                row.botToggle.setSelected(false);
-            }
+            row.botToggle.setDisable(false);
             row.updateBotPresentation();
+        }
+        if (selectedBotPluginFile == null) {
+            botPluginLabel.setText("Built-in Greedy Bot aktif. Pilih .jar untuk override.");
         }
     }
 

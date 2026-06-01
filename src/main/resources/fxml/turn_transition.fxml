@@ -23,7 +23,8 @@
         <VBox alignment="TOP_LEFT" spacing="18" styleClass="card-dark,turn-transition-card">
             <HBox alignment="CENTER_LEFT" spacing="16">
                 <StackPane fx:id="playerSeal" styleClass="turn-transition-seal" minWidth="78" minHeight="78" maxWidth="78" maxHeight="78">
-                    <Pane fx:id="personIcon" prefWidth="42" prefHeight="42" pickOnBounds="false"/>
+                    <StackPane fx:id="personIcon" alignment="CENTER"
+                               prefWidth="42" prefHeight="42" pickOnBounds="false"/>
                 </StackPane>
 
                 <VBox spacing="6">

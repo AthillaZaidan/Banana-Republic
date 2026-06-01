@@ -19,7 +19,7 @@ import javafx.scene.layout.StackPane;
 public class TurnTransitionController {
     @FXML private Pane livingLayer;
     @FXML private StackPane playerSeal;
-    @FXML private Pane personIcon;
+    @FXML private StackPane personIcon;
     @FXML private Label nextPlayerLabel;
     @FXML private Label playerMetaLabel;
     @FXML private Label phaseHintLabel;

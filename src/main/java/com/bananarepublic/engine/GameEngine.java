@@ -15,6 +15,7 @@ import com.bananarepublic.persistence.SaveLoadService;
 import com.bananarepublic.persistence.SnapshotSaveLoadService;
 import com.bananarepublic.plugin.Action;
 import com.bananarepublic.plugin.BotPluginLoader;
+import com.bananarepublic.plugin.GreedyBotStrategy;
 import com.bananarepublic.plugin.MapPluginLoader;
 import com.bananarepublic.plugin.PlayerStrategy;
 import com.bananarepublic.plugin.PluginLoadException;
@@ -233,17 +234,13 @@ public class GameEngine {
         requirePlayablePhase();
 
         DevelopmentCard card = findAndValidateCard(playerId, cardId);
-        if (!(card instanceof VictoryPointCard)) {
-            validateCanPlayCard(cardId);
+        if (card instanceof VictoryPointCard) {
+            throw new IllegalStateException("Victory point cards stay hidden until the game ends.");
         }
+        validateCanPlayCard(cardId);
 
         card.play(state, state.getCurrentPlayer());
-
-        if (card instanceof VictoryPointCard) {
-            updateWinner();
-        } else {
-            state.getTurnState().setHasPlayedDevelopmentCard(true);
-        }
+        state.getTurnState().setHasPlayedDevelopmentCard(true);
 
         removeCardFromHand(playerId, cardId);
         state.getDevelopmentDeck().discard(card);
@@ -797,34 +794,32 @@ public class GameEngine {
     private void configureBotStrategies(GameConfig config, List<Player> players) {
         botStrategies.clear();
         String jarPath = config.getBotPluginJarPath();
-        if (jarPath == null) {
-            return;
-        }
-
-        File jarFile = new File(jarPath);
         for (int i = 0; i < config.getPlayerConfigs().size(); i++) {
             PlayerConfig playerConfig = config.getPlayerConfigs().get(i);
             if (!playerConfig.isBotControlled()) {
                 continue;
             }
 
-            PlayerStrategy strategy = new BotPluginLoader().loadFromJar(jarFile);
+            PlayerStrategy strategy = jarPath == null || jarPath.isBlank()
+                    ? new GreedyBotStrategy()
+                    : new BotPluginLoader().loadFromJar(new File(jarPath));
             botStrategies.put(players.get(i).getId(), strategy);
         }
     }
 
     private void restoreBotStrategiesAfterLoad(java.util.Set<String> botPlayerIds, String jarPath) {
         botStrategies.clear();
-        if (jarPath == null || jarPath.isBlank() || botPlayerIds == null || botPlayerIds.isEmpty()) {
+        if (botPlayerIds == null || botPlayerIds.isEmpty()) {
             return;
         }
 
-        File jarFile = new File(jarPath);
         for (String playerId : botPlayerIds) {
             if (state.getPlayers().stream().noneMatch(player -> player.getId().equals(playerId))) {
                 continue;
             }
-            PlayerStrategy strategy = new BotPluginLoader().loadFromJar(jarFile);
+            PlayerStrategy strategy = jarPath == null || jarPath.isBlank()
+                    ? new GreedyBotStrategy()
+                    : new BotPluginLoader().loadFromJar(new File(jarPath));
             botStrategies.put(playerId, strategy);
         }
     }
