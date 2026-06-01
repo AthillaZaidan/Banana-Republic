@@ -146,6 +146,7 @@ public class TradeDialogController {
         GameEngine engine = GameSession.engine();
         try {
             TradeResult result;
+            String logEntry;
             if (maritimeMode) {
                 ResourceType offeredType = singleType(giveSteppers);
                 ResourceType requestedType = singleType(receiveSteppers);
@@ -153,12 +154,16 @@ public class TradeDialogController {
                     throw new IllegalArgumentException("Select exactly one offered and one requested resource type.");
                 }
                 int offeredAmount = giveSteppers.get(offeredType).valueProperty().get();
+                Player active = engine.getState().getCurrentPlayer();
                 result = engine.submitMaritimeTrade(new MaritimeTradeRequest(
-                        engine.getState().getCurrentPlayer().getId(),
+                        active.getId(),
                         offeredType,
                         offeredAmount,
                         requestedType
                 ));
+                logEntry = "[Trade] " + active.getName() + " menukar "
+                        + offeredAmount + " " + resourceLabel(offeredType)
+                        + " dengan bank untuk 1 " + resourceLabel(requestedType) + ".";
             } else {
                 ResourceInventory offered = toInventory(giveSteppers);
                 ResourceInventory requested = toInventory(receiveSteppers);
@@ -171,21 +176,28 @@ public class TradeDialogController {
                             offered,
                             requested
                     ));
+                    logEntry = "[Trade] " + responder.getName() + " mengajukan counter-offer ke "
+                            + proposer.getName() + ": memberi " + inventoryText(offered)
+                            + " untuk " + inventoryText(requested) + ".";
                 } else {
                     if (selectedTarget == null) {
                         throw new IllegalArgumentException("Select a domestic trade target.");
                     }
                     String activeId = engine.getState().getCurrentPlayer().getId();
+                    Player active = engine.getState().getCurrentPlayer();
                     result = engine.submitDomesticTrade(new TradeOffer(
                             activeId, selectedTarget.getId(), offered, requested
                     ));
+                    logEntry = "[Trade] " + active.getName() + " menawarkan trade ke "
+                            + selectedTarget.getName() + ": memberi " + inventoryText(offered)
+                            + " untuk " + inventoryText(requested) + ".";
                 }
             }
 
             AudioEngine.get().playSfx(AudioEngine.Sfx.TRADE);
             GameController gameController = GameSession.getGameController();
             if (gameController != null) {
-                gameController.log("[Trade] " + result.getMessage());
+                gameController.log(logEntry);
                 gameController.refresh();
             }
 
@@ -209,10 +221,15 @@ public class TradeDialogController {
         }
 
         try {
+            TradeOffer acceptedOffer = pendingOffer;
             TradeResult result = GameSession.engine().acceptDomesticTrade(pendingOffer.getResponderPlayerId());
             GameController gameController = GameSession.getGameController();
             if (gameController != null) {
-                gameController.log("[Trade] " + result.getMessage());
+                Player proposer = GameSession.engine().getState().getPlayerById(acceptedOffer.getProposerPlayerId());
+                Player responder = GameSession.engine().getState().getPlayerById(acceptedOffer.getResponderPlayerId());
+                gameController.log("[Trade] " + responder.getName() + " menerima trade dari "
+                        + proposer.getName() + ": " + inventoryText(acceptedOffer.getOffered())
+                        + " ditukar dengan " + inventoryText(acceptedOffer.getRequested()) + ".");
                 gameController.refresh();
             }
             close();
@@ -230,10 +247,14 @@ public class TradeDialogController {
         }
 
         try {
+            TradeOffer rejectedOffer = pendingOffer;
             TradeResult result = GameSession.engine().rejectDomesticTrade(pendingOffer.getResponderPlayerId());
             GameController gameController = GameSession.getGameController();
             if (gameController != null) {
-                gameController.log("[Trade] " + result.getMessage());
+                Player proposer = GameSession.engine().getState().getPlayerById(rejectedOffer.getProposerPlayerId());
+                Player responder = GameSession.engine().getState().getPlayerById(rejectedOffer.getResponderPlayerId());
+                gameController.log("[Trade] " + responder.getName() + " menolak trade dari "
+                        + proposer.getName() + ".");
                 gameController.refresh();
             }
             close();
@@ -371,10 +392,20 @@ public class TradeDialogController {
         for (ResourceType type : ResourceType.values()) {
             int amount = inventory.getAmount(type);
             if (amount > 0) {
-                tokens.add(amount + " " + type.name());
+                tokens.add(amount + " " + resourceLabel(type));
             }
         }
-        return tokens.isEmpty() ? "nothing" : String.join(", ", tokens);
+        return tokens.isEmpty() ? "kosong" : String.join(", ", tokens);
+    }
+
+    private String resourceLabel(ResourceType type) {
+        return switch (type) {
+            case WOOD -> "Kayu";
+            case BRICK -> "Batu Bata";
+            case WHEAT -> "Gandum";
+            case ORE -> "Bijih";
+            case BANANA -> "Pisang";
+        };
     }
 
     private void selectTarget(HBox selectedChip, Player selectedPlayer) {

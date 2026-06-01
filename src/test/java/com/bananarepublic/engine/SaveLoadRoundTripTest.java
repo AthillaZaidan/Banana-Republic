@@ -17,14 +17,25 @@ import com.bananarepublic.model.resource.ResourceType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SaveLoadRoundTripTest {
     @TempDir
@@ -41,6 +52,7 @@ class SaveLoadRoundTripTest {
         restoredEngine.loadGame(saveFile);
 
         assertGameStatesEquivalent(originalEngine.getState(), restoredEngine.getState());
+        assertEquals(originalEngine.isManualDiceEnabled(), restoredEngine.isManualDiceEnabled());
 
         restoredEngine.endTurn();
         assertEquals("P3", restoredEngine.getState().getCurrentPlayer().getId());
@@ -58,7 +70,32 @@ class SaveLoadRoundTripTest {
         restoredEngine.loadGame(saveFile);
 
         assertGameStatesEquivalent(originalEngine.getState(), restoredEngine.getState());
+        assertEquals(originalEngine.isManualDiceEnabled(), restoredEngine.isManualDiceEnabled());
         assertFalse(restoredEngine.getState().isGameOver());
+    }
+
+    @Test
+    void roundTripRestoresManualDiceAndBotMetadata() throws IOException {
+        java.nio.file.Path botJar = createBotPluginJar();
+
+        GameEngine originalEngine = new GameEngine();
+        originalEngine.startNewGame(new GameConfig(List.of(
+                new PlayerConfig("Stewart", PlayerColor.RED),
+                new PlayerConfig("Gro Bot", PlayerColor.BLUE, true),
+                new PlayerConfig("Kebin", PlayerColor.GREEN)
+        ), BoardMode.FIXED, false, null, null, botJar.toString()));
+
+        java.io.File saveFile = tempDir.resolve("bot-metadata.json").toFile();
+        originalEngine.saveGame(saveFile);
+
+        GameEngine restoredEngine = new GameEngine();
+        restoredEngine.loadGame(saveFile);
+
+        assertFalse(restoredEngine.isManualDiceEnabled());
+        assertEquals(botJar.toString(), restoredEngine.getActiveBotPluginJarPath());
+        assertFalse(restoredEngine.isBotPlayer("P1"));
+        assertTrue(restoredEngine.isBotPlayer("P2"));
+        assertFalse(restoredEngine.isBotPlayer("P3"));
     }
 
     private GameEngine createConfiguredGame() {
@@ -146,6 +183,64 @@ class SaveLoadRoundTripTest {
         turnState.setNimonMovedThisSeven(true);
 
         return engine;
+    }
+
+    private java.nio.file.Path createBotPluginJar() throws IOException {
+        java.nio.file.Path sourceRoot = tempDir.resolve("bot-src");
+        java.nio.file.Path classesRoot = tempDir.resolve("bot-classes");
+        java.nio.file.Path sourceFile = sourceRoot.resolve("testbot/PassiveBot.java");
+        java.nio.file.Path jarFile = tempDir.resolve("passive-bot.jar");
+        Files.createDirectories(sourceFile.getParent());
+        Files.createDirectories(classesRoot);
+        Files.writeString(sourceFile, """
+                package testbot;
+
+                import com.bananarepublic.engine.GameState;
+                import com.bananarepublic.plugin.Action;
+                import com.bananarepublic.plugin.BotActions;
+                import com.bananarepublic.plugin.PlayerStrategy;
+
+                public class PassiveBot implements PlayerStrategy {
+                    @Override
+                    public Action takeTurn(GameState state) {
+                        return new BotActions.EndTurnAction();
+                    }
+                }
+                """, StandardCharsets.UTF_8);
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        assertNotNull(compiler, "Test runtime must provide a Java compiler");
+
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+            Iterable<? extends JavaFileObject> units = fileManager.getJavaFileObjects(sourceFile.toFile());
+            List<String> options = List.of(
+                    "-classpath", System.getProperty("java.class.path"),
+                    "-d", classesRoot.toString()
+            );
+            Boolean success = compiler.getTask(null, fileManager, null, options, null, units).call();
+            assertTrue(Boolean.TRUE.equals(success), "Bot plugin test JAR compilation must succeed");
+        }
+
+        try (JarOutputStream jarOutput = new JarOutputStream(Files.newOutputStream(jarFile))) {
+            try (var files = Files.walk(classesRoot)) {
+                files
+                    .filter(Files::isRegularFile)
+                    .forEach(path -> writeJarEntry(jarOutput, classesRoot, path));
+            }
+        }
+
+        return jarFile;
+    }
+
+    private void writeJarEntry(JarOutputStream jarOutput, java.nio.file.Path classesRoot, java.nio.file.Path classFile) {
+        try {
+            String entryName = classesRoot.relativize(classFile).toString().replace('\\', '/');
+            jarOutput.putNextEntry(new JarEntry(entryName));
+            jarOutput.write(Files.readAllBytes(classFile));
+            jarOutput.closeEntry();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to write bot plugin JAR entry", e);
+        }
     }
 
     private void assertGameStatesEquivalent(GameState expected, GameState actual) {

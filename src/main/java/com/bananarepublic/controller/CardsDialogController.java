@@ -207,8 +207,11 @@ public class CardsDialogController {
                 case MonopolyCard m -> {
                     ResourceType target = promptResourceSelection();
                     if (target == null) return;
+                    int before = active.getResourceAmount(target);
                     engine.playDevelopmentCard(playerId, cardId, target);
-                    logEvent(active.getName() + " memainkan Monopoli Nimon (target: " + target + ").");
+                    int gained = active.getResourceAmount(target) - before;
+                    logEvent(active.getName() + " memainkan Monopoli Nimon pada "
+                            + resourceLabel(target) + " dan mengambil " + gained + " " + resourceLabel(target) + ".");
                 }
                 case RoadBuildingCard r -> {
                     beginRoadBuildingPlacement(engine, active, cardId);
@@ -283,7 +286,12 @@ public class CardsDialogController {
                             return;
                         }
                         GameSession.engine().playDevelopmentCard(active.getId(), cardId, tileId, victimId);
-                        logEvent(active.getName() + " memainkan Kartu Penjaga.");
+                        String detail = victimId == null
+                                ? "."
+                                : " dan mencuri 1 kartu sumber daya dari "
+                                + GameSession.engine().getState().getPlayerById(victimId).getName() + ".";
+                        logEvent(active.getName() + " memainkan Kartu Penjaga, memindahkan Nimon ke "
+                                + tileId + detail);
                         refreshGameController();
                         checkVictoryAfterPlay();
                     } catch (RuntimeException ex) {
@@ -414,6 +422,16 @@ public class CardsDialogController {
             case WHEAT -> ResourceIcons.Kind.WHEAT;
             case ORE -> ResourceIcons.Kind.ORE;
             case BANANA -> ResourceIcons.Kind.BANANA;
+        };
+    }
+
+    private String resourceLabel(ResourceType type) {
+        return switch (type) {
+            case WOOD -> "Kayu";
+            case BRICK -> "Batu Bata";
+            case WHEAT -> "Gandum";
+            case ORE -> "Bijih";
+            case BANANA -> "Pisang";
         };
     }
 

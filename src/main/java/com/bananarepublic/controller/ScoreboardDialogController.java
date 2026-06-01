@@ -122,6 +122,7 @@ public class ScoreboardDialogController {
                 createStat("Pipes", player.getOwnedPipes().size()),
                 createStat("Posts", ownedPosts(player)),
                 createStat("Labs", ownedLabs(player)),
+                createStat("Knights", player.getPlayedKnightCount()),
                 createStat("Resources", player.getTotalResourceCards()),
                 createStat("Cards", player.getHandCardCount())
         );

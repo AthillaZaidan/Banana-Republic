@@ -63,10 +63,12 @@ import javafx.scene.transform.Translate;
 import javafx.util.Duration;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.StringJoiner;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -182,14 +184,19 @@ public class GameController {
             installFromEngine(state);
             trackedPlayerId = state.getCurrentPlayer().getId();
             trackedPhase = state.getTurnState().getPhase();
+        } else {
+            installPreviewData();
+        }
+
+        renderPersistedLogbook();
+        if (GameSession.hasEngine() && !GameSession.hasLogEntries()) {
+            GameState state = GameSession.engine().getState();
             if (GameSession.isStartingOrderPending()) {
                 updateDiceDisplay(null, "Press the dice button to determine the first player.");
                 log("[Setup] Determine the first player from inside the map.");
             } else {
-                log("[Turn] " + state.getCurrentPlayer().getName() + " is active.");
+                log("[Turn] " + state.getCurrentPlayer().getName() + " starts the turn.");
             }
-        } else {
-            installPreviewData();
         }
 
         installFrame();
@@ -231,6 +238,18 @@ public class GameController {
     }
 
     public void log(String entry) {
+        GameSession.appendLogEntry(entry);
+        appendLogEntryToUi(entry);
+    }
+
+    private void renderPersistedLogbook() {
+        logbook.getChildren().clear();
+        for (String entry : GameSession.getLogEntries()) {
+            appendLogEntryToUi(entry);
+        }
+    }
+
+    private void appendLogEntryToUi(String entry) {
         HBox row = new HBox(6);
         row.getStyleClass().add("log-entry");
         row.setAlignment(Pos.TOP_LEFT);
@@ -278,6 +297,13 @@ public class GameController {
         if (isBoardSelectionActive()) {
             showInfo("Placement Active", "Finish the current map placement first.");
             return;
+        }
+        if (GameSession.hasEngine()) {
+            TurnPhase phase = GameSession.engine().getState().getTurnState().getPhase();
+            if (phase != TurnPhase.RESOURCE_GATHERING && phase != TurnPhase.TRADE_BUILD) {
+                showInfo("Unavailable", "Cards cannot be played during " + phase + ".");
+                return;
+            }
         }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/cards_dialog.fxml");
@@ -331,10 +357,19 @@ public class GameController {
                             try {
                                 GameEngine currentEngine = GameSession.engine();
                                 GameState currentState = currentEngine.getState();
+                                Map<ResourceType, Integer> resourcesBefore = snapshotPlayerResources(currentState.getCurrentPlayer());
+                                boolean grantsInitialResources = currentState.getTurnState().getSetupRound() == 2;
                                 currentEngine.placeSetupWatchPost(playerId, intersectionId);
                                 AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
                                 log("[Setup] " + currentState.getCurrentPlayer().getName()
                                         + " placed a monitoring post at " + intersectionId + ".");
+                                if (grantsInitialResources) {
+                                    logPositiveResourceDelta(
+                                            "[Setup] " + currentState.getCurrentPlayer().getName() + " received initial resources: ",
+                                            resourcesBefore,
+                                            currentEngine.getState().getCurrentPlayer()
+                                    );
+                                }
                                 refresh();
                             } catch (RuntimeException ex) {
                                 showError("Build Failed", ex.getMessage());
@@ -553,7 +588,9 @@ public class GameController {
                 resetStartingOrderFlow();
                 updateDiceDisplay(null, "Starting order not resolved.");
                 refresh();
+                return;
             }
+            refresh();
             return;
         }
 
@@ -578,12 +615,15 @@ public class GameController {
         }
 
         GameEngine engine = GameSession.engine();
+        String endedPlayerName = engine.getState().getCurrentPlayer().getName();
         try {
             if (engine.getState().isGameOver()) {
                 Navigator.showOverlay("/fxml/victory_dialog.fxml");
                 return;
             }
             engine.endTurn();
+            log("[Turn] " + endedPlayerName + " ended the turn. "
+                    + engine.getState().getCurrentPlayer().getName() + " is up next.");
         } catch (RuntimeException ex) {
             showError("End Turn Failed", ex.getMessage());
             return;
@@ -612,6 +652,7 @@ public class GameController {
                     player.getOwnedPipes().size(),
                     ownedPosts(player),
                     ownedLabs(player),
+                    player.getPlayedKnightCount(),
                     player.getTotalResourceCards(),
                     player.getHandCardCount(),
                     isActive
@@ -623,9 +664,9 @@ public class GameController {
 
     private void installPreviewData() {
         teamList.getChildren().clear();
-        addTeamRow("Stewart", "red", 2, 1, 2, 0, 3, 0, true);
-        addTeamRow("Gro", "blue", 4, 4, 2, 1, 5, 2, false);
-        addTeamRow("Kebin", "gold", 3, 2, 2, 0, 2, 1, false);
+        addTeamRow("Stewart", "red", 2, 1, 2, 0, 0, 3, 0, true);
+        addTeamRow("Gro", "blue", 4, 4, 2, 1, 1, 5, 2, false);
+        addTeamRow("Kebin", "gold", 3, 2, 2, 0, 0, 2, 1, false);
         installPreviewResources();
         phaseLabel.setText("Preview Board");
         timerValue.setText("--:--");
@@ -715,7 +756,7 @@ public class GameController {
         return chip;
     }
 
-    private void addTeamRow(String name, String color, int vp, int pipe, int post, int lab, int cards, int dev, boolean active) {
+    private void addTeamRow(String name, String color, int vp, int pipe, int post, int lab, int knights, int cards, int dev, boolean active) {
         VBox row = new VBox(6);
         row.getStyleClass().add("card-dark");
         row.setStyle("-fx-padding: 8 10 10 10;"
@@ -750,6 +791,7 @@ public class GameController {
                 statCell("🛢", pipe + "/15"),
                 statCell("🛡", post + "/5"),
                 statCell("🔬", lab + "/4"),
+                statCell("⚔", String.valueOf(knights)),
                 statCell("🃏", String.valueOf(cards)),
                 statCell("📜", String.valueOf(dev))
         );
@@ -785,6 +827,13 @@ public class GameController {
                 && !trackedPlayerId.equals(state.getCurrentPlayer().getId())
                 && trackedPhase == TurnPhase.TRADE_BUILD
                 && state.getTurnState().getPhase() == TurnPhase.RESOURCE_GATHERING) {
+            String previousPlayerName = state.getPlayers().stream()
+                    .filter(player -> player.getId().equals(trackedPlayerId))
+                    .map(Player::getName)
+                    .findFirst()
+                    .orElse("Previous player");
+            log("[Turn] " + previousPlayerName + " ended the turn. "
+                    + state.getCurrentPlayer().getName() + " is up next.");
             trackedPlayerId = state.getCurrentPlayer().getId();
             trackedPhase = state.getTurnState().getPhase();
             if (uiTimer != null) {
@@ -1257,6 +1306,82 @@ public class GameController {
         };
     }
 
+    private String logResourceName(ResourceType type) {
+        return switch (type) {
+            case WOOD -> "Kayu";
+            case BRICK -> "Batu Bata";
+            case WHEAT -> "Gandum";
+            case ORE -> "Bijih";
+            case BANANA -> "Pisang";
+        };
+    }
+
+    private Map<String, Map<ResourceType, Integer>> snapshotAllPlayerResources(GameState state) {
+        Map<String, Map<ResourceType, Integer>> snapshot = new LinkedHashMap<>();
+        for (Player player : state.getPlayers()) {
+            snapshot.put(player.getId(), snapshotPlayerResources(player));
+        }
+        return snapshot;
+    }
+
+    private Map<ResourceType, Integer> snapshotPlayerResources(Player player) {
+        Map<ResourceType, Integer> snapshot = new EnumMap<>(ResourceType.class);
+        for (ResourceType type : ResourceType.values()) {
+            snapshot.put(type, player.getResourceAmount(type));
+        }
+        return snapshot;
+    }
+
+    private void logRollResourceDistribution(int diceTotal, Map<String, Map<ResourceType, Integer>> before, GameState after) {
+        boolean loggedGain = false;
+        for (Player player : after.getPlayers()) {
+            String delta = describePositiveDelta(before.get(player.getId()), player);
+            if (delta == null) {
+                continue;
+            }
+            loggedGain = true;
+            log("[Resource] " + player.getName() + " mendapatkan " + delta + " dari roll " + diceTotal + ".");
+        }
+        if (!loggedGain) {
+            log("[Resource] Roll " + diceTotal + " tidak menghasilkan material untuk pemain mana pun.");
+        }
+    }
+
+    private void logPositiveResourceDelta(String prefix, Map<ResourceType, Integer> before, Player player) {
+        String delta = describePositiveDelta(before, player);
+        if (delta != null) {
+            log(prefix + delta + ".");
+        }
+    }
+
+    private String describePositiveDelta(Map<ResourceType, Integer> before, Player player) {
+        if (before == null) {
+            return null;
+        }
+        StringJoiner joiner = new StringJoiner(", ");
+        for (ResourceType type : ResourceType.values()) {
+            int previous = before.getOrDefault(type, 0);
+            int gained = player.getResourceAmount(type) - previous;
+            if (gained > 0) {
+                joiner.add(gained + " " + logResourceName(type));
+            }
+        }
+        String result = joiner.toString();
+        return result.isBlank() ? null : result;
+    }
+
+    private void logSevenResolution(GameEngine engine) {
+        List<String> pendingNames = engine.getState().getTurnState().getPendingDiscardPlayerIds().stream()
+                .map(playerId -> engine.getState().getPlayerById(playerId).getName())
+                .sorted()
+                .toList();
+        if (pendingNames.isEmpty()) {
+            log("[Nimon] Roll 7 activated Nimon Ungu. No discard is required.");
+            return;
+        }
+        log("[Nimon] Roll 7 activated Nimon Ungu. Discard required for: " + String.join(", ", pendingNames) + ".");
+    }
+
     private void fitBoard() {
         double availW = boardHolder.getWidth()
                 - boardHolder.getPadding().getLeft() - boardHolder.getPadding().getRight();
@@ -1398,11 +1523,9 @@ public class GameController {
                 switch (phase) {
                     case SETUP -> log("[Bot] " + engine.resolveBotSetupStep());
                     case RESOURCE_GATHERING -> {
-                        Player bot = state.getCurrentPlayer();
-                        DiceRoll roll = engine.rollDice(DiceMode.RANDOM, null);
-                        updateDiceDisplay(roll, bot.getName() + " rolled");
-                        log("[Bot] " + bot.getName() + " rolled "
-                                + roll.getFirst() + " + " + roll.getSecond() + " = " + roll.total() + ".");
+                        requestBotTurnRoll(state.getCurrentPlayer());
+                        refresh();
+                        return;
                     }
                     case MOVE_NIMON_UNGU -> log("[Bot] " + engine.resolveBotNimonFlow());
                     case TRADE_BUILD -> log("[Bot] " + engine.executeBotTradeBuildAction());
@@ -1572,20 +1695,28 @@ public class GameController {
         GameEngine engine = GameSession.engine();
         GameState state = engine.getState();
         String playerName = state.getCurrentPlayer().getName();
+        boolean botTurn = engine.isCurrentPlayerBot();
+        Map<String, Map<ResourceType, Integer>> resourcesBefore = snapshotAllPlayerResources(state);
 
         try {
-                DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
+            DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
             animateDiceRoll(roll, playerName + " rolled", () -> {
-                log("[Roll] " + playerName + " rolled "
+                log((botTurn ? "[Bot] " : "[Roll] ") + playerName + " rolled "
                         + roll.getFirst() + " + " + roll.getSecond()
                         + " = " + roll.total() + ".");
 
                 if (roll.total() == 7) {
-                    if (engine.getState().getTurnState().getPhase() == TurnPhase.DISCARD) {
+                    logSevenResolution(engine);
+                    if (engine.getState().getTurnState().getPhase() == TurnPhase.DISCARD
+                            && engine.getState().getTurnState().getPendingDiscardPlayerIds().stream()
+                            .anyMatch(playerId -> !engine.isBotPlayer(playerId))) {
                         Navigator.showOverlay("/fxml/discard_dialog.fxml");
-                    } else if (engine.getState().getTurnState().getPhase() == TurnPhase.MOVE_NIMON_UNGU) {
+                    } else if (!botTurn
+                            && engine.getState().getTurnState().getPhase() == TurnPhase.MOVE_NIMON_UNGU) {
                         promptNimonFlow();
                     }
+                } else {
+                    logRollResourceDistribution(roll.total(), resourcesBefore, engine.getState());
                 }
 
                 checkVictory();
@@ -1642,6 +1773,16 @@ public class GameController {
 
     private DiceRoll randomRoll() {
         return DiceRoll.of(1 + (int) (Math.random() * 6), 1 + (int) (Math.random() * 6));
+    }
+
+    private void requestBotTurnRoll(Player bot) {
+        diceFlowContext = DiceFlowContext.NORMAL_TURN;
+        showDiceDialog(
+                "🎲  BOT ROLL",
+                "Choose how " + bot.getName() + " will roll.",
+                "ROLL FOR " + bot.getName().toUpperCase(),
+                GameSession.engine().isManualDiceEnabled()
+        );
     }
 
     private void showInfo(String title, String message) {

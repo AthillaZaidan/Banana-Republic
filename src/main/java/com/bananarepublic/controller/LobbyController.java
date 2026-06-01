@@ -187,6 +187,7 @@ public class LobbyController {
                 selectedMapPluginFile == null ? null : selectedMapPluginFile.getAbsolutePath(),
                 selectedBotPluginFile == null ? null : selectedBotPluginFile.getAbsolutePath()
         ));
+        GameSession.resetForNewSession();
         GameSession.setEngine(engine);
         GameSession.markSessionStartNow();
         GameSession.setStartingOrderPending(true);

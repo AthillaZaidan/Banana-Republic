@@ -114,14 +114,21 @@ public class StealDialogController {
         try {
             if (selectedPlayerId != null) {
                 AudioEngine.get().playSfx(AudioEngine.Sfx.DAGGER);
+                String targetName = GameSession.engine().getState().getPlayerById(selectedPlayerId).getName();
                 GameSession.engine().stealAfterSeven(selectedPlayerId);
+                GameController controller = GameSession.getGameController();
+                if (controller != null) {
+                    controller.log("[Nimon] " + GameSession.engine().getState().getCurrentPlayer().getName()
+                            + " stole 1 resource card from " + targetName + ".");
+                    controller.refresh();
+                }
             } else {
                 GameSession.engine().finishNimonAfterSevenWithoutSteal();
-            }
-            GameController controller = GameSession.getGameController();
-            if (controller != null) {
-                controller.log("[Nimon] Steal action resolved.");
-                controller.refresh();
+                GameController controller = GameSession.getGameController();
+                if (controller != null) {
+                    controller.log("[Nimon] Steal skipped.");
+                    controller.refresh();
+                }
             }
         } catch (RuntimeException ex) {
             return;
