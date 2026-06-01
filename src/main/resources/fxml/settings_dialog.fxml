@@ -34,9 +34,7 @@
                 <rowConstraints><RowConstraints/></rowConstraints>
 
                 <VBox styleClass="settings-tile" GridPane.columnIndex="0">
-                    <StackPane styleClass="settings-tile-icon,settings-tile-icon-gold">
-                        <Pane fx:id="saveIconPane" prefWidth="22" prefHeight="22" pickOnBounds="false"/>
-                    </StackPane>
+                    <StackPane fx:id="saveIconPane" styleClass="settings-tile-icon,settings-tile-icon-gold"/>
                     <Label text="Save Current Game"
                            style="-fx-font-weight: 800; -fx-font-size: 14px;"/>
                     <Label text="Persist the full game state to a .json or .ser file. Can be reloaded from the main menu."
@@ -49,9 +47,7 @@
                 </VBox>
 
                 <VBox styleClass="settings-tile" GridPane.columnIndex="1">
-                    <StackPane styleClass="settings-tile-icon,settings-tile-icon-blue">
-                        <Pane fx:id="pluginIconPane" prefWidth="22" prefHeight="22" pickOnBounds="false"/>
-                    </StackPane>
+                    <StackPane fx:id="pluginIconPane" styleClass="settings-tile-icon,settings-tile-icon-blue"/>
                     <Label text="Load Card Plugin (.jar)"
                            style="-fx-font-weight: 800; -fx-font-size: 14px;"/>
                     <Label text="Replace the Experiment Card pool with cards defined by an external plugin."
