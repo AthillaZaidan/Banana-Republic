@@ -110,7 +110,8 @@
                                     text="" accessibleText="Build Pipe" onAction="#onBuildPipe">
                                 <graphic>
                                     <StackPane styleClass="sidebar-glyph-wrap">
-                                        <SVGPath styleClass="sidebar-glyph-svg" content="M6 27 L12 21 L18 27 L12 33 Z M17 16 L23 10 L29 16 L23 22 Z M20 23 L26 17 L32 23 L26 29 Z"/>
+                                        <SVGPath styleClass="sidebar-glyph-svg" content="M5 15 H12 V13 H22 V15 H29 V19 H22 V21 H12 V19 H5 Z"/>
+                                        <SVGPath styleClass="sidebar-glyph-svg-line" content="M6 16 H11 M23 16 H28 M13 14 H21 M13 20 H21"/>
                                     </StackPane>
                                 </graphic>
                             </Button>
@@ -121,8 +122,8 @@
                                     text="" accessibleText="Upgrade Lab" onAction="#onUpgradeLab">
                                 <graphic>
                                     <StackPane styleClass="sidebar-glyph-wrap">
-                                        <SVGPath styleClass="sidebar-glyph-svg" content="M10 8 H22 V11 L19 16 V28 C19 31 16 33 13 33 C10 33 7 31 7 28 V16 L10 11 Z"/>
-                                        <SVGPath styleClass="sidebar-glyph-svg-line" content="M24 25 V12 H20 L27 4 L34 12 H30 V25 Z"/>
+                                        <SVGPath styleClass="sidebar-glyph-svg" content="M17 32 V14 H22 L17 4 L12 14 H17"/>
+                                        <SVGPath styleClass="sidebar-glyph-svg-line" content="M12 32 H22"/>
                                     </StackPane>
                                 </graphic>
                             </Button>
@@ -158,7 +159,7 @@
                             <padding><Insets top="10" right="12" bottom="10" left="12"/></padding>
                         </VBox>
                     </ScrollPane>
-                    <Label styleClass="plaque" text="NIMON TEAM">
+                    <Label styleClass="plaque" text="PLAYERS">
                         <VBox.margin><Insets top="6"/></VBox.margin>
                     </Label>
                     <VBox fx:id="teamList" spacing="10"/>
@@ -167,45 +168,53 @@
         </StackPane>
 
         <StackPane style="-fx-padding: 0 18 18 18;">
-            <HBox spacing="20" alignment="CENTER_LEFT"
-                  style="-fx-min-height: 132; -fx-pref-height: 132; -fx-padding: 10 18;
-                         -fx-background-color: rgba(9,18,26,0.96);
-                         -fx-border-color: rgba(244,201,118,0.22) transparent transparent transparent;
-                         -fx-border-width: 1.4 0 0 0;">
+            <HBox alignment="CENTER_LEFT" styleClass="bottom-bar">
                 <HBox fx:id="resBar" styleClass="res-bar" alignment="CENTER_LEFT"/>
 
                 <Region HBox.hgrow="ALWAYS"/>
 
-                <HBox spacing="14" alignment="CENTER_RIGHT">
-                    <VBox fx:id="timerChip" styleClass="timer-chip" alignment="CENTER">
-                        <Label fx:id="timerValue" styleClass="timer-value" text="01:30"/>
-                        <Label styleClass="timer-label" text="TIME REMAINING"/>
+                <HBox spacing="10" alignment="CENTER">
+
+                    <!-- Timer: square 58×58 same as sidebar btn -->
+                    <VBox alignment="CENTER" spacing="4">
+                        <VBox fx:id="timerChip" styleClass="bottom-square-cell" alignment="CENTER">
+                            <Label fx:id="timerValue" styleClass="bottom-square-value" text="1:30"/>
+                        </VBox>
+                        <Label styleClass="bottom-btn-label" text="TIME LEFT"/>
                     </VBox>
 
-                    <VBox alignment="CENTER_RIGHT" spacing="0"
-                          style="-fx-padding: 10 12 12 12; -fx-background-color: rgba(17,33,45,0.9);
-                                 -fx-border-color: rgba(244,201,118,0.24); -fx-border-width: 1.2;
-                                 -fx-background-radius: 14; -fx-border-radius: 14;">
-                        <Label fx:id="diceSummaryLabel" text=""
-                               managed="false" visible="false"/>
-                        <HBox spacing="8" alignment="CENTER_RIGHT">
-                            <StackPane style="-fx-min-width: 82; -fx-pref-width: 82; -fx-min-height: 82; -fx-pref-height: 82;
-                                              -fx-background-color: #ffffff; -fx-border-color: #d9b86f;
-                                              -fx-border-radius: 14; -fx-background-radius: 14;">
+                    <!-- Dice pair — two squares side by side, both clickable -->
+                    <VBox fx:id="dicePanel" alignment="CENTER" spacing="4"
+                          onMouseClicked="#onRollDice">
+                        <HBox spacing="6" alignment="CENTER">
+                            <StackPane styleClass="die-face">
                                 <Pane fx:id="dieOneValue" pickOnBounds="false"/>
                             </StackPane>
-                            <StackPane style="-fx-min-width: 82; -fx-pref-width: 82; -fx-min-height: 82; -fx-pref-height: 82;
-                                              -fx-background-color: #ffffff; -fx-border-color: #d9b86f;
-                                              -fx-border-radius: 14; -fx-background-radius: 14;">
+                            <StackPane styleClass="die-face">
                                 <Pane fx:id="dieTwoValue" pickOnBounds="false"/>
                             </StackPane>
                         </HBox>
+                        <Label fx:id="diceSummaryLabel" styleClass="bottom-btn-label" text="ROLL DICE"/>
                     </VBox>
 
-                    <Button fx:id="rollDiceBtn" styleClass="btn,btn-icon-dark" text="ROLL"
-                            onAction="#onRollDice" style="-fx-padding: 14 18; -fx-font-size: 13px;"/>
-                    <Button fx:id="endTurnBtn" styleClass="btn,btn-gold" text="END TURN  ▶" onAction="#onEndTurn"
-                            style="-fx-padding: 14 28; -fx-font-size: 14px;"/>
+                    <!-- END TURN: square gold -->
+                    <VBox alignment="CENTER" spacing="4">
+                        <Button fx:id="endTurnBtn"
+                                styleClass="btn,btn-icon,sidebar-icon-btn-gold"
+                                contentDisplay="GRAPHIC_ONLY" text="" accessibleText="End Turn"
+                                onAction="#onEndTurn">
+                            <graphic>
+                                <StackPane styleClass="sidebar-glyph-wrap">
+                                    <SVGPath styleClass="sidebar-glyph-svg"
+                                             content="M16 6 L27 18 L16 30 L16 23 L5 23 L5 13 L16 13 Z"/>
+                                    <SVGPath styleClass="sidebar-glyph-svg"
+                                             content="M30 6 H33 V30 H30 Z"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                        <Label styleClass="bottom-btn-label" text="END TURN"/>
+                    </VBox>
+
                 </HBox>
             </HBox>
         </StackPane>

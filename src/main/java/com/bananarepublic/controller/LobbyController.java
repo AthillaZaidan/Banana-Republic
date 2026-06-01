@@ -244,7 +244,7 @@ public class LobbyController {
             numberChip.setStyle("-fx-background-color: #fff8e1; -fx-background-radius: 999;"
                 + " -fx-border-color: -parchment-line; -fx-border-radius: 999; -fx-border-width: 1;");
             Label numberLabel = new Label(String.valueOf(index));
-            numberLabel.setStyle("-fx-text-fill: -gold-deep; -fx-font-weight: 900; -fx-font-family: Georgia;");
+            numberLabel.setStyle("-fx-text-fill: -gold-deep; -fx-font-weight: 900; -fx-font-family: Gemunu Libre;");
             numberChip.getChildren().add(numberLabel);
 
             nameField = new TextField(name);

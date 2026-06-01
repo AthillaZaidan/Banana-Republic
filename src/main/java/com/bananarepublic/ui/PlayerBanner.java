@@ -36,7 +36,7 @@ public final class PlayerBanner extends HBox {
         StackPane portrait = new StackPane();
         portrait.getStyleClass().add("player-banner__portrait");
         Label initial = new Label(String.valueOf(name.charAt(0)));
-        initial.setStyle("-fx-font-family: Georgia; -fx-font-weight: 900; -fx-font-size: 24px;"
+        initial.setStyle("-fx-font-family: Gemunu Libre; -fx-font-weight: 900; -fx-font-size: 24px;"
             + " -fx-text-fill: #5a3a1c;");
         portrait.getChildren().add(initial);
 
