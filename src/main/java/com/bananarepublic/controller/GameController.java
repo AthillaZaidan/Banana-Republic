@@ -177,6 +177,7 @@ public class GameController {
         canvasPane.setOnZoom(this::onCanvasZoom);
         canvasPane.setOnMousePressed(this::onCanvasDragStart);
         canvasPane.setOnMouseDragged(this::onCanvasDragged);
+        canvasPane.setOnMouseReleased(this::onCanvasDragEnd);
         canvasPane.setCursor(javafx.scene.Cursor.DEFAULT);
 
         if (GameSession.hasEngine()) {
@@ -184,6 +185,9 @@ public class GameController {
             installFromEngine(state);
             trackedPlayerId = state.getCurrentPlayer().getId();
             trackedPhase = state.getTurnState().getPhase();
+            updateDiceDisplay(null, GameSession.isStartingOrderPending()
+                    ? "Press the dice button to determine the first player."
+                    : "Roll the dice");
         } else {
             installPreviewData();
         }
@@ -1146,7 +1150,8 @@ public class GameController {
         clickCatcher.setFill(Color.color(0, 0, 0, 0.001));
         clickCatcher.setStroke(null);
         clickCatcher.setOnMousePressed(MouseEvent::consume);
-        clickCatcher.setOnMouseClicked(event -> {
+        clickCatcher.setOnMouseDragged(MouseEvent::consume);
+        clickCatcher.setOnMouseReleased(event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 event.consume();
                 cancelBoardSelection();
@@ -1251,7 +1256,8 @@ public class GameController {
 
     private void wireSelectionNode(Node node, String selectionId) {
         node.setOnMousePressed(MouseEvent::consume);
-        node.setOnMouseClicked(event -> {
+        node.setOnMouseDragged(MouseEvent::consume);
+        node.setOnMouseReleased(event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 event.consume();
                 cancelBoardSelection();
@@ -1410,6 +1416,10 @@ public class GameController {
     }
 
     private void onCanvasScroll(ScrollEvent event) {
+        if (isBoardSelectionActive()) {
+            event.consume();
+            return;
+        }
         if (event.getTouchCount() > 0) {
             return;
         }
@@ -1418,11 +1428,19 @@ public class GameController {
     }
 
     private void onCanvasZoom(ZoomEvent event) {
+        if (isBoardSelectionActive()) {
+            event.consume();
+            return;
+        }
         applyZoom(event.getZoomFactor(), event.getX(), event.getY());
         event.consume();
     }
 
     private void onCanvasDragStart(MouseEvent event) {
+        if (isBoardSelectionActive() && event.getButton() == MouseButton.PRIMARY) {
+            event.consume();
+            return;
+        }
         if (event.getButton() == MouseButton.PRIMARY || event.getButton() == MouseButton.MIDDLE) {
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
@@ -1433,9 +1451,19 @@ public class GameController {
     }
 
     private void onCanvasDragged(MouseEvent event) {
+        if (isBoardSelectionActive() && event.getButton() == MouseButton.PRIMARY) {
+            event.consume();
+            return;
+        }
         if (event.getButton() == MouseButton.PRIMARY || event.getButton() == MouseButton.MIDDLE) {
             canvasTranslate.setX(translateStartX + (event.getSceneX() - dragStartX));
             canvasTranslate.setY(translateStartY + (event.getSceneY() - dragStartY));
+        }
+    }
+
+    private void onCanvasDragEnd(MouseEvent event) {
+        if (event.getSource() instanceof Pane pane) {
+            pane.setCursor(javafx.scene.Cursor.DEFAULT);
         }
     }
 

@@ -481,6 +481,11 @@
     -fx-line-spacing: 2px;
 }
 
+.turn-transition-plaque {
+    -fx-text-fill: #493016;
+    -fx-font-weight: 900;
+}
+
 .turn-transition-stat {
     -fx-min-width: 92;
     -fx-padding: 12 10;

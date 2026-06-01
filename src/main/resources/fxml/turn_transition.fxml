@@ -34,7 +34,7 @@
 
                 <Region HBox.hgrow="ALWAYS"/>
 
-                <Label text="PASS DEVICE" styleClass="plaque">
+                <Label text="PASS DEVICE" styleClass="plaque,turn-transition-plaque">
                     <HBox.margin><Insets top="6"/></HBox.margin>
                 </Label>
             </HBox>
