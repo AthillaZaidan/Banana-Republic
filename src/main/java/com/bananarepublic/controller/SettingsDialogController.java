@@ -3,10 +3,12 @@ package com.bananarepublic.controller;
 import com.bananarepublic.exception.SaveLoadException;
 import com.bananarepublic.plugin.PluginLoadException;
 import com.bananarepublic.ui.AudioEngine;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
+import javafx.scene.Group;
 import javafx.scene.control.Alert;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
@@ -23,9 +25,13 @@ public class SettingsDialogController {
     @FXML private Slider sfxSlider;
     @FXML private Label bgmValueLabel;
     @FXML private Label sfxValueLabel;
+    @FXML private StackPane saveIconPane;
+    @FXML private StackPane pluginIconPane;
 
     @FXML
     public void initialize() {
+        saveIconPane.getChildren().setAll(scaledIcon(GameIcons.save(), 1.6));
+        pluginIconPane.getChildren().setAll(scaledIcon(GameIcons.plugin(), 1.6));
         animatedBgToggle.setSelected(LivingBackground.isAnimationsEnabled());
 
         AudioEngine audio = AudioEngine.get();
@@ -118,6 +124,12 @@ public class SettingsDialogController {
 
     private void close() {
         Navigator.closeOverlay(root);
+    }
+
+    private static Group scaledIcon(Group icon, double scale) {
+        icon.setScaleX(scale);
+        icon.setScaleY(scale);
+        return icon;
     }
 
     private File normalizeSaveTarget(File chosen) {

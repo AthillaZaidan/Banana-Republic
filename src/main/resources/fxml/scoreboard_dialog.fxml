@@ -13,7 +13,7 @@
 
     <VBox styleClass="modal" maxWidth="560" maxHeight="-Infinity">
         <HBox styleClass="modal__header" alignment="CENTER_LEFT">
-            <Label styleClass="modal__title" text="📊  SCOREBOARD"
+            <Label styleClass="modal__title" text="SCOREBOARD"
                    HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
         </HBox>

@@ -36,7 +36,7 @@ public final class PlayerBanner extends HBox {
         StackPane portrait = new StackPane();
         portrait.getStyleClass().add("player-banner__portrait");
         Label initial = new Label(String.valueOf(name.charAt(0)));
-        initial.setStyle("-fx-font-family: Georgia; -fx-font-weight: 900; -fx-font-size: 24px;"
+        initial.setStyle("-fx-font-family: Gemunu Libre; -fx-font-weight: 900; -fx-font-size: 24px;"
             + " -fx-text-fill: #5a3a1c;");
         portrait.getChildren().add(initial);
 
@@ -64,7 +64,7 @@ public final class PlayerBanner extends HBox {
         HBox stats = new HBox(10);
         stats.getStyleClass().add("player-banner__stats");
         stats.setAlignment(Pos.CENTER_LEFT);
-        stats.getChildren().addAll(statLabel("🃏 " + cards), statLabel("⚔ " + knights));
+        stats.getChildren().addAll(statLabel("Cards: " + cards), statLabel("Knt: " + knights));
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         stats.getChildren().add(spacer);

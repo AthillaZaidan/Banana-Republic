@@ -7,6 +7,7 @@
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
@@ -19,7 +20,7 @@
     <VBox styleClass="modal" maxWidth="580" maxHeight="-Infinity">
 
         <HBox styleClass="modal__header" alignment="CENTER_LEFT">
-            <Label styleClass="modal__title" text="⚙  SETTINGS &amp; PLUGINS"
+            <Label styleClass="modal__title" text="SETTINGS &amp; PLUGINS"
                    HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
         </HBox>
@@ -33,9 +34,7 @@
                 <rowConstraints><RowConstraints/></rowConstraints>
 
                 <VBox styleClass="settings-tile" GridPane.columnIndex="0">
-                    <StackPane styleClass="settings-tile-icon,settings-tile-icon-gold">
-                        <Label text="💾"/>
-                    </StackPane>
+                    <StackPane fx:id="saveIconPane" styleClass="settings-tile-icon,settings-tile-icon-gold"/>
                     <Label text="Save Current Game"
                            style="-fx-font-weight: 800; -fx-font-size: 14px;"/>
                     <Label text="Persist the full game state to a .json or .ser file. Can be reloaded from the main menu."
@@ -48,9 +47,7 @@
                 </VBox>
 
                 <VBox styleClass="settings-tile" GridPane.columnIndex="1">
-                    <StackPane styleClass="settings-tile-icon,settings-tile-icon-blue">
-                        <Label text="🔌"/>
-                    </StackPane>
+                    <StackPane fx:id="pluginIconPane" styleClass="settings-tile-icon,settings-tile-icon-blue"/>
                     <Label text="Load Card Plugin (.jar)"
                            style="-fx-font-weight: 800; -fx-font-size: 14px;"/>
                     <Label text="Replace the Experiment Card pool with cards defined by an external plugin."
@@ -64,14 +61,14 @@
             </GridPane>
 
             <Label styleClass="warn-band" maxWidth="Infinity"
-                   text="⚠  Loading a plugin mid-game resets the deck and discards undrawn cards."/>
+                   text="Loading a plugin mid-game resets the deck and discards undrawn cards."/>
 
             <CheckBox fx:id="animatedBgToggle" text="Animated background (clouds, gull, bobbing ship)"
                       style="-fx-font-size: 12px; -fx-text-fill: -ink-2;"/>
 
             <VBox spacing="6">
                 <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="🎵  BGM Volume"
+                    <Label text="BGM Volume"
                            style="-fx-font-size: 12px; -fx-font-weight: 800; -fx-text-fill: -ink-2;"/>
                     <Label fx:id="bgmValueLabel"
                            style="-fx-font-size: 12px; -fx-text-fill: -ink-mute;"/>
@@ -83,7 +80,7 @@
 
             <VBox spacing="6">
                 <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="🔊  SFX Volume"
+                    <Label text="SFX Volume"
                            style="-fx-font-size: 12px; -fx-font-weight: 800; -fx-text-fill: -ink-2;"/>
                     <Label fx:id="sfxValueLabel"
                            style="-fx-font-size: 12px; -fx-text-fill: -ink-mute;"/>

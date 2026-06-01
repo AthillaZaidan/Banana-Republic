@@ -207,7 +207,7 @@ public final class HexBoard extends Pane {
 
         Text label = new Text(visual.label());
         label.setFill(Color.color(0.1, 0.08, 0.04, 0.82));
-        label.setFont(Font.font("Georgia", FontWeight.BOLD, 11));
+        label.setFont(Font.font("Gemunu Libre", FontWeight.BOLD, 11));
         label.setX(center.getX() - label.getLayoutBounds().getWidth() / 2.0);
         label.setY(center.getY() - 18);
         getChildren().add(label);
@@ -223,7 +223,7 @@ public final class HexBoard extends Pane {
             getChildren().add(token);
 
             Text number = new Text(String.valueOf(tile.getToken()));
-            number.setFont(Font.font("Georgia", FontWeight.BOLD, hot ? 17 : 15));
+            number.setFont(Font.font("Gemunu Libre", FontWeight.BOLD, hot ? 17 : 15));
             number.setFill(hot ? Color.web("#b72d1d") : Color.web("#25170b"));
             number.setX(center.getX() - number.getLayoutBounds().getWidth() / 2.0);
             number.setY(tokenY - number.getLayoutBounds().getCenterY());
@@ -239,7 +239,7 @@ public final class HexBoard extends Pane {
             getChildren().add(robber);
 
             Text marker = new Text("N");
-            marker.setFont(Font.font("Georgia", FontWeight.BLACK, 15));
+            marker.setFont(Font.font("Gemunu Libre", FontWeight.BLACK, 15));
             marker.setFill(Color.WHITE);
             marker.setX(center.getX() - marker.getLayoutBounds().getWidth() / 2.0);
             marker.setY(tokenY - marker.getLayoutBounds().getCenterY());
@@ -297,7 +297,7 @@ public final class HexBoard extends Pane {
             getChildren().add(plate);
 
             Text ratio = new Text(harbor.getRatio() + ":1");
-            ratio.setFont(Font.font("Georgia", FontWeight.BOLD, 16));
+            ratio.setFont(Font.font("Gemunu Libre", FontWeight.BOLD, 16));
             ratio.setFill(Color.web("#21140a"));
             ratio.setX(sign.getX() - ratio.getLayoutBounds().getWidth() / 2.0);
             ratio.setY(sign.getY() - 4);
@@ -644,7 +644,7 @@ public final class HexBoard extends Pane {
         }
 
         Text generic = new Text("↔");
-        generic.setFont(Font.font("Georgia", FontWeight.BOLD, 14));
+        generic.setFont(Font.font("Gemunu Libre", FontWeight.BOLD, 14));
         generic.setFill(Color.web("#21140a"));
         generic.setX(-generic.getLayoutBounds().getWidth() / 2.0);
         generic.setY(-generic.getLayoutBounds().getCenterY());

@@ -45,7 +45,7 @@
                     onAction="#onNewGame" maxWidth="Infinity"/>
             <Button fx:id="loadGameBtn" styleClass="btn,btn-outline" text="⤓  LOAD GAME"
                     onAction="#onLoadGame" maxWidth="Infinity"/>
-            <Button fx:id="exitBtn"     styleClass="btn,btn-outline" text="✕  EXIT"
+            <Button fx:id="exitBtn"     styleClass="btn,btn-outline" text="EXIT"
                     onAction="#onExit" maxWidth="Infinity"/>
         </VBox>
 

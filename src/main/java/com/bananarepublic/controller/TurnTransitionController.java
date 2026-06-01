@@ -6,22 +6,20 @@ import com.bananarepublic.model.player.PlayerColor;
 import com.bananarepublic.model.player.SpecialCardType;
 import com.bananarepublic.service.victory.VictoryService;
 import com.bananarepublic.ui.AudioEngine;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.Navigator;
 import javafx.fxml.FXML;
-import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 
 public class TurnTransitionController {
     @FXML private Pane livingLayer;
     @FXML private StackPane playerSeal;
-    @FXML private Label playerInitialLabel;
+    @FXML private Pane personIcon;
     @FXML private Label nextPlayerLabel;
     @FXML private Label playerMetaLabel;
     @FXML private Label phaseHintLabel;
@@ -37,12 +35,13 @@ public class TurnTransitionController {
     @FXML
     public void initialize() {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.SLATE);
+        personIcon.getChildren().setAll(GameIcons.person());
+
         if (!GameSession.hasEngine()) {
             return;
         }
 
         Player player = GameSession.engine().getState().getCurrentPlayer();
-        playerInitialLabel.setText(String.valueOf(player.getName().charAt(0)));
         playerSeal.getStyleClass().removeAll("pc-red", "pc-blue", "pc-gold", "pc-white");
         playerSeal.getStyleClass().add("pc-" + cssColor(player.getColor()));
 

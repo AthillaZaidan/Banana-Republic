@@ -26,7 +26,7 @@
         <VBox alignment="CENTER" spacing="6">
             <Label styleClass="eyebrow" text="L5 · GAME RESULT"/>
             <HBox alignment="CENTER" spacing="6">
-                <Label text="🏆" style="-fx-font-size: 30px;"/>
+                <Pane fx:id="trophyIcon" prefWidth="24" prefHeight="24" pickOnBounds="false"/>
                 <Label fx:id="winnerName" text="Gro"
                        style="-fx-font-family: Georgia; -fx-font-size: 30px;
                               -fx-font-weight: 900; -fx-text-fill: -gold-1;

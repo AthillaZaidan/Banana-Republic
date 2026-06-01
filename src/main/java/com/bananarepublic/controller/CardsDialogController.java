@@ -543,17 +543,17 @@ public class CardsDialogController {
 
     private CardMeta getMeta(DevelopmentCard card) {
         return switch (card) {
-            case KnightCard k -> new CardMeta("knight", "⚔", "KARTU PENJAGA", "Penjaga",
+            case KnightCard k -> new CardMeta("knight", "KNT", "KARTU PENJAGA", "Penjaga",
                 "Pindahkan Nimon Ungu, lalu curi 1 kartu sumber daya.");
-            case RoadBuildingCard r -> new CardMeta("progress", "🛠", "KARTU INOVASI", "Inovasi: Jalur",
+            case RoadBuildingCard r -> new CardMeta("progress", "JAL", "KARTU INOVASI", "Inovasi: Jalur",
                 "Bangun 2 Pipa gratis di petak manapun.");
-            case MonopolyCard m -> new CardMeta("progress", "🧪", "KARTU INOVASI", "Inovasi: Monopoli",
+            case MonopolyCard m -> new CardMeta("progress", "MON", "KARTU INOVASI", "Inovasi: Monopoli",
                 "Pilih 1 jenis sumber daya. Semua lawan menyerahkannya.");
-            case VictoryPointCard v -> new CardMeta("vp", "📜", "POIN PRESTASI", "Poin Rahasia",
+            case VictoryPointCard v -> new CardMeta("vp", "VP", "POIN PRESTASI", "Poin Rahasia",
                 "Memberikan +1 VP. Tersembunyi hingga akhir.");
-            case PluginExperimentCardAdapter p -> new CardMeta("plugin", "🔌", "KARTU EKSPERIMEN", p.getName(),
+            case PluginExperimentCardAdapter p -> new CardMeta("plugin", "PLG", "KARTU EKSPERIMEN", p.getName(),
                 p.getDescription());
-            default -> new CardMeta("unknown", "❓", "???", "Kartu Misterius", "Efek tidak diketahui.");
+            default -> new CardMeta("unknown", "?", "???", "Kartu Misterius", "Efek tidak diketahui.");
         };
     }
 

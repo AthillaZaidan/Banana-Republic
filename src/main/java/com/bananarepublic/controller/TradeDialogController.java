@@ -9,6 +9,7 @@ import com.bananarepublic.service.trade.MaritimeTradeRequest;
 import com.bananarepublic.service.trade.TradeOffer;
 import com.bananarepublic.service.trade.TradeResult;
 import com.bananarepublic.ui.AudioEngine;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
@@ -18,6 +19,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -50,6 +52,7 @@ public class TradeDialogController {
     @FXML private Button rejectBtn;
     @FXML private Button acceptBtn;
     @FXML private Button submitBtn;
+    @FXML private Pane tradeArrowIcon;
 
     private final Map<ResourceType, Stepper> giveSteppers = new EnumMap<>(ResourceType.class);
     private final Map<ResourceType, Stepper> receiveSteppers = new EnumMap<>(ResourceType.class);
@@ -63,6 +66,7 @@ public class TradeDialogController {
 
     @FXML
     public void initialize() {
+        tradeArrowIcon.getChildren().setAll(GameIcons.trade());
         if (!GameSession.hasEngine()) {
             close();
             return;

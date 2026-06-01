@@ -1,79 +1,46 @@
 package com.bananarepublic.ui;
 
+import javafx.geometry.Pos;
+import javafx.scene.control.Label;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Paint;
-import javafx.scene.shape.Circle;
+import javafx.scene.layout.StackPane;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
 public final class DicePips {
-    private static final Paint DEFAULT_PIP_COLOR = Paint.valueOf("#201408");
 
-    private DicePips() {
-    }
+    private DicePips() {}
 
     public static void render(Pane pane, int value, double size) {
-        render(pane, value, size, DEFAULT_PIP_COLOR);
-    }
-
-    public static void render(Pane pane, int value, double size, Paint pipColor) {
         pane.getChildren().clear();
         pane.setMinSize(size, size);
         pane.setPrefSize(size, size);
         pane.setMaxSize(size, size);
         pane.setMouseTransparent(true);
 
-        double left = size * 0.22;
-        double center = size * 0.50;
-        double right = size * 0.78;
-        double top = size * 0.22;
-        double middle = size * 0.50;
-        double bottom = size * 0.78;
-        double radius = Math.max(4.0, size * 0.11);
+        StackPane overlay = new StackPane();
+        overlay.setMinSize(size, size);
+        overlay.setPrefSize(size, size);
+        overlay.setMaxSize(size, size);
+        overlay.setAlignment(Pos.CENTER);
 
-        switch (value) {
-            case 1 -> addPip(pane, center, middle, radius, pipColor);
-            case 2 -> {
-                addPip(pane, left, top, radius, pipColor);
-                addPip(pane, right, bottom, radius, pipColor);
-            }
-            case 3 -> {
-                addPip(pane, left, top, radius, pipColor);
-                addPip(pane, center, middle, radius, pipColor);
-                addPip(pane, right, bottom, radius, pipColor);
-            }
-            case 4 -> {
-                addPip(pane, left, top, radius, pipColor);
-                addPip(pane, right, top, radius, pipColor);
-                addPip(pane, left, bottom, radius, pipColor);
-                addPip(pane, right, bottom, radius, pipColor);
-            }
-            case 5 -> {
-                addPip(pane, left, top, radius, pipColor);
-                addPip(pane, right, top, radius, pipColor);
-                addPip(pane, center, middle, radius, pipColor);
-                addPip(pane, left, bottom, radius, pipColor);
-                addPip(pane, right, bottom, radius, pipColor);
-            }
-            case 6 -> {
-                addPip(pane, left, top, radius, pipColor);
-                addPip(pane, right, top, radius, pipColor);
-                addPip(pane, left, middle, radius, pipColor);
-                addPip(pane, right, middle, radius, pipColor);
-                addPip(pane, left, bottom, radius, pipColor);
-                addPip(pane, right, bottom, radius, pipColor);
-            }
-            default -> addPip(pane, center, middle, radius, pipColor);
-        }
+        Label numLabel = new Label(String.valueOf(value));
+        double fontSize = size * 0.58;
+        Font font = Font.font("Gemunu Libre", FontWeight.EXTRA_BOLD, fontSize);
+        numLabel.setFont(font);
+        numLabel.setStyle(
+            "-fx-text-fill: #1a2e0a;"
+            + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 2, 0.4, 0, 1);"
+        );
+        numLabel.setTranslateY(-size * 0.04);
+
+        overlay.getChildren().add(numLabel);
+        pane.getChildren().add(overlay);
     }
 
     public static Pane createGraphic(int value, double size) {
         Pane pane = new Pane();
         render(pane, value, size);
         return pane;
-    }
-
-    private static void addPip(Pane pane, double centerX, double centerY, double radius, Paint pipColor) {
-        Circle pip = new Circle(centerX, centerY, radius);
-        pip.setFill(pipColor);
-        pane.getChildren().add(pip);
     }
 }

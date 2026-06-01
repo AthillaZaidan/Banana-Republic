@@ -13,7 +13,7 @@
 
     <VBox styleClass="modal" maxWidth="620" maxHeight="-Infinity">
         <HBox styleClass="modal__header" alignment="CENTER_LEFT">
-            <Label styleClass="modal__title" text="🧾  BUILD COST CARD"
+            <Label styleClass="modal__title" text="BUILD COST CARD"
                    HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
         </HBox>

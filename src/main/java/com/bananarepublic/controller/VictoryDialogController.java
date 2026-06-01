@@ -101,7 +101,7 @@ public class VictoryDialogController {
                 + (c.kind().equals("vp")
                 ? "-fx-background-color: -gold-1;"
                 : "-fx-background-color: #7e3fb8;"));
-        Label icon = new Label(c.kind().equals("vp") ? "📜" : "⚔");
+        Label icon = new Label(c.kind().equals("vp") ? "VP" : "KNT");
         icon.setStyle("-fx-text-fill: white;");
         swatch.getChildren().add(icon);
 

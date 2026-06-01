@@ -3,6 +3,7 @@ package com.bananarepublic.controller;
 import com.bananarepublic.model.building.BuildingType;
 import com.bananarepublic.model.player.Player;
 import com.bananarepublic.service.victory.VictoryService;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.LivingBackground;
 import com.bananarepublic.ui.AudioEngine;
@@ -22,6 +23,7 @@ import java.util.List;
 
 public class GameResultController {
     @FXML private Pane livingLayer;
+    @FXML private Pane trophyIcon;
     @FXML private Label winnerName;
     @FXML private Label playTime;
     @FXML private Label summaryLabel;
@@ -30,6 +32,7 @@ public class GameResultController {
     @FXML
     public void initialize() {
         LivingBackground.attach(livingLayer, LivingBackground.Variant.PARCHMENT);
+        trophyIcon.getChildren().setAll(GameIcons.trophy());
 
         PseudoClass winnerClass = PseudoClass.getPseudoClass("winner");
         scoreTable.setRowFactory(tv -> new TableRow<>() {
@@ -88,7 +91,7 @@ public class GameResultController {
         int specialPoints = player.getSpecialCards().size() * 2;
         int secretPoints = player.getSecretVictoryPoints();
         int total = victoryService.calculateVictoryPoints(player);
-        String displayName = player.equals(winner) ? "🏆 " + player.getName() : player.getName();
+        String displayName = player.getName();
         return new ScoreRow(displayName, postPoints, labPoints, specialPoints, secretPoints, total, player.equals(winner));
     }
 

@@ -54,8 +54,8 @@
 }
 
 .root {
-    -fx-font-family: "Inter", "System";
-    -fx-font-size: 13px;
+    -fx-font-family: "Gemunu Libre", "Gemunu Libre", "System";
+    -fx-font-size: 14px;
     -fx-text-fill: -ink-1;
     -fx-background-color: -parchment-1;
 }
@@ -75,7 +75,7 @@
 }
 
 .wordmark {
-    -fx-font-family: "Georgia";
+    -fx-font-family: "Gemunu Libre";
     -fx-font-weight: 900;
     -fx-fill: -gold-1;
     -fx-text-fill: -gold-1;
@@ -104,7 +104,7 @@
 }
 
 .btn, .button {
-    -fx-font-family: "Inter", "System";
+    -fx-font-family: "Gemunu Libre", "System";
     -fx-font-weight: bold;
     -fx-font-size: 14px;
     -fx-text-fill: -ink-1;
@@ -325,7 +325,7 @@
     -fx-text-fill: #fff8ea;
     -fx-font-weight: 900;
     -fx-font-size: 12px;
-    -fx-font-family: "Georgia", serif;
+    -fx-font-family: "Gemunu Libre", serif;
 }
 
 .left-toolbox__actions {
@@ -514,7 +514,56 @@
     -fx-font-weight: 600;
     -fx-alignment: center;
 }
+/* ── Team rows (right sidebar player list) ─────────────────── */
+.team-row {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(6, 18, 28, 0.97) 0%, rgba(10, 33, 48, 0.97) 100%);
+    -fx-background-radius: 14;
+    -fx-border-color: rgba(244, 201, 118, 0.26);
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-effect: dropshadow(gaussian, rgba(0, 20, 40, 0.42), 16, 0.06, 0, 6);
+}
 
+.team-row--active {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(14, 38, 58, 0.99) 0%, rgba(18, 54, 78, 0.99) 100%);
+    -fx-border-color: rgba(244, 201, 118, 0.52);
+    -fx-effect: dropshadow(gaussian, rgba(244, 201, 118, 0.18), 20, 0.1, 0, 6);
+}
+
+.team-row__header {
+    -fx-padding: 8 10 6 10;
+}
+
+.team-row__divider {
+    -fx-pref-height: 1;
+    -fx-background-color: linear-gradient(to right,
+        transparent 0%, rgba(244, 201, 118, 0.35) 50%, transparent 100%);
+    -fx-margin: 0 10;
+}
+
+.team-row__stats {
+    -fx-padding: 6 8 8 8;
+    -fx-spacing: 0;
+}
+
+.team-stat-cell {
+    -fx-padding: 4 7;
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(244, 201, 118, 0.12);
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-min-width: 40;
+    -fx-pref-width: 40;
+}
+
+.team-stat-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ────────────────────────────────────────────────────────────── */
 .plaque {
     -fx-background-color: linear-gradient(to bottom, #fff7df 0%, #f0e3b6 100%);
     -fx-border-color: -parchment-line;
@@ -595,33 +644,47 @@
     -fx-background-color: transparent;
     -fx-border-color: transparent;
     -fx-padding: 0;
-    -fx-spacing: 18;
+    -fx-spacing: 8;
     -fx-effect: null;
 }
 
+/* Shared 58×58 square tile — same shape as sidebar-icon-btn */
 .res-chip {
-    -fx-padding: 0;
-    -fx-text-fill: -ink-on-dark;
-    -fx-font-weight: 900;
-    -fx-font-size: 20px;
-    -fx-spacing: 10;
-    -fx-alignment: center-left;
+    -fx-alignment: center;
+    -fx-spacing: 3;
+    -fx-min-width: 58;  -fx-pref-width: 58;  -fx-max-width: 58;
+    -fx-min-height: 58; -fx-pref-height: 58; -fx-max-height: 58;
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(246, 214, 128, 0.85) 0%, rgba(136, 92, 23, 0.95) 100%),
+        linear-gradient(to bottom, rgba(20, 69, 94, 0.98) 0%, rgba(7, 24, 36, 0.98) 100%);
+    -fx-background-insets: 0, 0 0 4 0;
+    -fx-background-radius: 18;
+    -fx-border-color: rgba(244, 201, 118, 0.32);
+    -fx-border-width: 1.1;
+    -fx-border-radius: 18;
+    -fx-effect: dropshadow(gaussian, rgba(0, 18, 30, 0.38), 20, 0.08, 0, 8);
 }
+
 .res-chip .label {
     -fx-text-fill: -ink-on-dark;
 }
+
 .res-chip-vp {
-    -fx-background-color: radial-gradient(center 35% 30%, radius 75%, -gold-3, -gold-2);
-    -fx-text-fill: #1a1108;
-    -fx-min-width: 44; -fx-min-height: 44;
-    -fx-max-width: 44; -fx-max-height: 44;
-    -fx-background-radius: 999;
-    -fx-border-color: -ocean-deep;
-    -fx-border-width: 2.2;
-    -fx-border-radius: 999;
     -fx-alignment: center;
+    -fx-min-width: 58;  -fx-pref-width: 58;  -fx-max-width: 58;
+    -fx-min-height: 58; -fx-pref-height: 58; -fx-max-height: 58;
+    -fx-background-color:
+        linear-gradient(to bottom, -gold-deep 0%, -gold-deep 100%),
+        linear-gradient(to bottom, -gold-3 0%, -gold-1 40%, -gold-2 100%);
+    -fx-background-insets: 0, 0 0 4 0;
+    -fx-background-radius: 18;
+    -fx-border-color: rgba(244, 201, 118, 0.52);
+    -fx-border-width: 1.4;
+    -fx-border-radius: 18;
+    -fx-text-fill: #1a1108;
     -fx-font-weight: 900;
-    -fx-font-size: 20px;
+    -fx-font-size: 22px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 18, 30, 0.38), 20, 0.08, 0, 8);
 }
 
 .modal-backdrop {
@@ -961,7 +1024,7 @@
     -fx-font-family: "Menlo", "Consolas", monospace;
 }
 .text-serif {
-    -fx-font-family: "Georgia", serif;
+    -fx-font-family: "Gemunu Libre", serif;
 }
 
 .coin {
@@ -987,7 +1050,7 @@
     -fx-alignment: center;
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-family: "Georgia", serif;
+    -fx-font-family: "Gemunu Libre", serif;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 4, 0.05, 0, 2);
 }
 .initial-chip.pc-white, .initial-chip.pc-gold {
@@ -1033,7 +1096,7 @@
     -fx-padding: 8 18;
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-family: "Inter", "System";
+    -fx-font-family: "Gemunu Libre", "System";
     -fx-font-size: 13px;
     -fx-effect: dropshadow(gaussian, rgba(0, 20, 40, 0.4), 20, 0.05, 0, 8);
 }
@@ -1123,28 +1186,135 @@
     -fx-font-size: 14px;
 }
 
-.timer-chip {
-    -fx-background-color: linear-gradient(to bottom, -panel-mid, -panel-darkest);
-    -fx-border-color: -panel-darkest;
-    -fx-border-width: 1.5;
-    -fx-background-radius: 10;
-    -fx-border-radius: 10;
-    -fx-padding: 6 18;
-    -fx-alignment: center;
+/* ── Bottom bar ──────────────────────────────────────────────── */
+.bottom-bar {
+    -fx-min-height: 96;
+    -fx-pref-height: 96;
+    -fx-padding: 0 20;
+    -fx-background-color: rgba(9, 18, 26, 0.96);
+    -fx-border-color: rgba(244, 201, 118, 0.22) transparent transparent transparent;
+    -fx-border-width: 1.4 0 0 0;
+    -fx-spacing: 0;
+    -fx-alignment: center-left;
 }
-.timer-chip .timer-value {
-    -fx-font-family: "Menlo", "Consolas", monospace;
-    -fx-font-weight: bold;
-    -fx-font-size: 22px;
+
+/* ── Shared 58×58 square — used by timer, die faces ─────────── */
+.bottom-square-cell {
+    -fx-min-width: 58;  -fx-pref-width: 58;  -fx-max-width: 58;
+    -fx-min-height: 58; -fx-pref-height: 58; -fx-max-height: 58;
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(6, 18, 28, 0.96) 0%, rgba(10, 33, 48, 0.96) 100%),
+        linear-gradient(to bottom, rgba(28, 85, 112, 0.42) 0%, rgba(11, 31, 45, 0.42) 100%);
+    -fx-background-insets: 0, 0 0 4 0;
+    -fx-background-radius: 18;
+    -fx-border-color: rgba(244, 201, 118, 0.32);
+    -fx-border-width: 1.1;
+    -fx-border-radius: 18;
+    -fx-alignment: center;
+    -fx-effect: dropshadow(gaussian, rgba(0, 18, 30, 0.38), 20, 0.08, 0, 8);
+}
+
+.bottom-square-value {
+    -fx-font-family: "Gemunu Libre";
+    -fx-font-weight: 800;
+    -fx-font-size: 16px;
     -fx-text-fill: #fde9c4;
 }
-.timer-chip .timer-label {
-    -fx-font-size: 9px;
-    -fx-text-fill: -ink-on-dark-mute;
-    -fx-font-weight: bold;
+
+/* ── Die face — 58×58, board-game token style ───────────────── */
+.die-face {
+    -fx-min-width: 58;  -fx-pref-width: 58;  -fx-max-width: 58;
+    -fx-min-height: 58; -fx-pref-height: 58; -fx-max-height: 58;
+    -fx-background-color: linear-gradient(to bottom, #f0f0ea 0%, #e0e0d5 100%);
+    -fx-background-insets: 0;
+    -fx-background-radius: 18;
+    -fx-border-color:
+        rgba(30, 30, 20, 0.15)
+        rgba(30, 30, 20, 0.15)
+        rgba(0, 0, 0, 0.80)
+        rgba(30, 30, 20, 0.15);
+    -fx-border-width: 1.5 1.5 6 1.5;
+    -fx-border-radius: 18;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.50), 6, 0.2, 0, 3);
 }
+
+/* ── Dice VBox wrapper — cursor + disabled state ────────────── */
+.dice-panel-btn {
+    -fx-cursor: hand;
+}
+
+.dice-panel-btn:disabled {
+    -fx-opacity: 0.42;
+}
+
+/* ── END TURN gold button — same 58×58 as sidebar ───────────── */
+.sidebar-icon-btn-gold {
+    -fx-min-width: 58px;
+    -fx-min-height: 58px;
+    -fx-max-width: 58px;
+    -fx-max-height: 58px;
+    -fx-padding: 0;
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+    -fx-background-color:
+        linear-gradient(to bottom, -gold-deep 0%, -gold-deep 100%),
+        linear-gradient(to bottom, -gold-3 0%, -gold-1 40%, -gold-2 100%);
+    -fx-background-insets: 0, 0 0 4 0;
+    -fx-effect: dropshadow(gaussian, rgba(0, 18, 30, 0.38), 20, 0.08, 0, 8);
+}
+
+.sidebar-icon-btn-gold:hover {
+    -fx-background-color:
+        linear-gradient(to bottom, -gold-deep 0%, -gold-deep 100%),
+        linear-gradient(to bottom, #fff0ad 0%, #ffd957 40%, #f0bd1c 100%);
+    -fx-effect: dropshadow(gaussian, rgba(245, 183, 56, 0.35), 26, 0.12, 0, 10);
+}
+
+.sidebar-icon-btn-gold:pressed {
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+    -fx-translate-y: 1;
+}
+
+.sidebar-icon-btn-gold:disabled {
+    -fx-opacity: 0.42;
+}
+
+/* ── Small label under each bottom square ───────────────────── */
+.bottom-btn-label {
+    -fx-font-size: 9px;
+    -fx-font-weight: 900;
+    -fx-text-fill: -ink-on-dark-mute;
+    -fx-alignment: center;
+    -fx-min-width: 58;
+    -fx-max-width: 58;
+}
+
+/* ── Timer ───────────────────────────────────────────────────── */
+.timer-chip {
+    -fx-min-width: 58;  -fx-pref-width: 58;  -fx-max-width: 58;
+    -fx-min-height: 58; -fx-pref-height: 58; -fx-max-height: 58;
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(6, 18, 28, 0.96) 0%, rgba(10, 33, 48, 0.96) 100%),
+        linear-gradient(to bottom, rgba(28, 85, 112, 0.42) 0%, rgba(11, 31, 45, 0.42) 100%);
+    -fx-background-insets: 0, 0 0 4 0;
+    -fx-border-color: rgba(244, 201, 118, 0.32);
+    -fx-border-width: 1.1;
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+    -fx-alignment: center;
+    -fx-effect: dropshadow(gaussian, rgba(0, 18, 30, 0.38), 20, 0.08, 0, 8);
+}
+
+.timer-value {
+    -fx-font-family: "Gemunu Libre";
+    -fx-font-weight: 800;
+    -fx-font-size: 18px;
+    -fx-text-fill: #fde9c4;
+}
+
 .timer-chip.is-urgent .timer-value {
-    -fx-text-fill: #ff9999;
+    -fx-text-fill: #ff8888;
 }
 
 .gap-4  { -fx-spacing: 4; }

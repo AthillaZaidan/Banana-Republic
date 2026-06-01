@@ -21,6 +21,7 @@ import com.bananarepublic.ui.DiceDialogRequest;
 import com.bananarepublic.ui.DiceDialogResult;
 import com.bananarepublic.ui.DicePips;
 import com.bananarepublic.ui.AudioEngine;
+import com.bananarepublic.ui.GameIcons;
 import com.bananarepublic.ui.GameSession;
 import com.bananarepublic.ui.HexBoard;
 import com.bananarepublic.ui.LivingBackground;
@@ -57,6 +58,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.shape.StrokeType;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Scale;
 import javafx.scene.transform.Translate;
@@ -112,14 +115,14 @@ public class GameController {
     @FXML private Button buildPipeBtn;
     @FXML private Button upgradeLabBtn;
     @FXML private Button resolveNimonBtn;
-    @FXML private Button rollDiceBtn;
+    @FXML private VBox dicePanel;
     @FXML private Button endTurnBtn;
 
     private Timeline uiTimer;
 
     private static final double BOARD_DESIGN_W = 900;
     private static final double BOARD_DESIGN_H = 780;
-    private static final double BOARD_MIN_SCALE = 0.25;
+    private static final double BG_MULT = 4.0;
     private static final double BOARD_MAX_SCALE = 3.0;
     private static final double ZOOM_FACTOR = 1.10;
 
@@ -151,8 +154,10 @@ public class GameController {
     @FXML
     public void initialize() {
         GameSession.setGameController(this);
-        LivingBackground.attach(livingLayer, LivingBackground.Variant.OCEAN);
+        // livingLayer kept for API compat but game-screen world elements go into boardCanvas below
+        livingLayer.setMouseTransparent(true);
         AudioEngine.get().playGameBgm();
+        dicePanel.setCursor(javafx.scene.Cursor.HAND);
         configureSidebarHoverZones();
         installSidebarHoverCards();
 
@@ -161,8 +166,28 @@ public class GameController {
         boardSelectionLayer.setPickOnBounds(false);
         boardSelectionLayer.setMouseTransparent(false);
         boardSelectionLayer.setPrefSize(BOARD_DESIGN_W, BOARD_DESIGN_H);
-        boardCanvas = new Group(board, boardSelectionLayer);
+
+        // OCEAN.png fills a large area centered on the board so it never shows edges during zoom/pan
+        double bgW = BOARD_DESIGN_W * 4.0;
+        double bgH = BOARD_DESIGN_H * 4.0;
+        ImageView oceanBg = new ImageView();
+        try (var stream = getClass().getResourceAsStream("/images/background/OCEAN.png")) {
+            if (stream != null) {
+                oceanBg.setImage(new Image(stream));
+            }
+        } catch (Exception ignored) {}
+        oceanBg.setFitWidth(bgW);
+        oceanBg.setFitHeight(bgH);
+        oceanBg.setPreserveRatio(false);
+        oceanBg.setX(-BOARD_DESIGN_W * 1.5);
+        oceanBg.setY(-BOARD_DESIGN_H * 1.5);
+        oceanBg.setMouseTransparent(true);
+
+        boardCanvas = new Group(oceanBg, board, boardSelectionLayer);
         boardCanvas.getTransforms().addAll(canvasTranslate, canvasScale);
+
+        // Attach animated world-space elements (clouds, gulls, ships) into boardCanvas
+        LivingBackground.attachToCanvas(boardCanvas, BOARD_DESIGN_W, BOARD_DESIGN_H);
 
         Pane canvasPane = new Pane(boardCanvas);
         canvasPane.setStyle("-fx-background-color: transparent;");
@@ -550,6 +575,10 @@ public class GameController {
     }
 
     @FXML
+    private void onRollDice(javafx.scene.input.MouseEvent ignored) {
+        onRollDice();
+    }
+
     private void onRollDice() {
         if (isBoardSelectionActive()) {
             showInfo("Placement Active", "Finish the current map placement first.");
@@ -576,7 +605,7 @@ public class GameController {
 
         diceFlowContext = DiceFlowContext.NORMAL_TURN;
         showDiceDialog(
-                "🎲  ROLL DICE",
+                "ROLL DICE",
                 "Choose random roll or pick both dice manually.",
                 "ROLL DICE",
                 engine.isManualDiceEnabled()
@@ -678,34 +707,54 @@ public class GameController {
         buildPipeBtn.setDisable(true);
         upgradeLabBtn.setDisable(true);
         resolveNimonBtn.setDisable(true);
-        rollDiceBtn.setDisable(true);
+        dicePanel.setDisable(true);
         endTurnBtn.setDisable(true);
+    }
+
+    private VBox vpChip(int vp) {
+        VBox wrap = new VBox(4);
+        wrap.setAlignment(Pos.CENTER);
+        StackPane vpNode = new StackPane(new Label(String.valueOf(vp)));
+        vpNode.getStyleClass().add("res-chip-vp");
+        Label lbl = new Label("VP");
+        lbl.getStyleClass().add("bottom-btn-label");
+        wrap.getChildren().addAll(vpNode, lbl);
+        return wrap;
+    }
+
+    private VBox resourceChipWrapped(ResourceIcons.Kind kind, int count, String label) {
+        VBox wrap = new VBox(4);
+        wrap.setAlignment(Pos.CENTER);
+        wrap.getChildren().addAll(resourceChip(kind, count), makeBottomLabel(label));
+        return wrap;
+    }
+
+    private Label makeBottomLabel(String text) {
+        Label l = new Label(text);
+        l.getStyleClass().add("bottom-btn-label");
+        return l;
     }
 
     private void installResourceBar(Player active) {
         resBar.getChildren().clear();
         int vp = new VictoryService().calculateVictoryPoints(active);
-        StackPane vpNode = new StackPane(new Label(String.valueOf(vp)));
-        vpNode.getStyleClass().add("res-chip-vp");
-        resBar.getChildren().add(vpNode);
+        resBar.getChildren().add(vpChip(vp));
 
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.WOOD, active.getResourceAmount(ResourceType.WOOD)));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.BRICK, active.getResourceAmount(ResourceType.BRICK)));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.WHEAT, active.getResourceAmount(ResourceType.WHEAT)));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.ORE, active.getResourceAmount(ResourceType.ORE)));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.BANANA, active.getResourceAmount(ResourceType.BANANA)));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.WOOD,   active.getResourceAmount(ResourceType.WOOD),   "WOOD"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.BRICK,  active.getResourceAmount(ResourceType.BRICK),  "BRICK"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.WHEAT,  active.getResourceAmount(ResourceType.WHEAT),  "WHEAT"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.ORE,    active.getResourceAmount(ResourceType.ORE),    "ORE"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.BANANA, active.getResourceAmount(ResourceType.BANANA), "BANANA"));
     }
 
     private void installPreviewResources() {
         resBar.getChildren().clear();
-        StackPane vpNode = new StackPane(new Label("2"));
-        vpNode.getStyleClass().add("res-chip-vp");
-        resBar.getChildren().add(vpNode);
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.WOOD, 2));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.BRICK, 1));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.WHEAT, 0));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.ORE, 1));
-        resBar.getChildren().add(resourceChip(ResourceIcons.Kind.BANANA, 2));
+        resBar.getChildren().add(vpChip(2));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.WOOD,   2, "WOOD"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.BRICK,  1, "BRICK"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.WHEAT,  0, "WHEAT"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.ORE,    1, "ORE"));
+        resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.BANANA, 2, "BANANA"));
         updateDiceDisplay(null, "Roll the dice");
     }
 
@@ -743,75 +792,108 @@ public class GameController {
         });
     }
 
-    private HBox resourceChip(ResourceIcons.Kind kind, int count) {
-        HBox chip = new HBox(6);
-        chip.getStyleClass().add("res-chip");
-        chip.setAlignment(Pos.CENTER_LEFT);
+    private VBox resourceChip(ResourceIcons.Kind kind, int count) {
+        VBox container = new VBox(2);
+        container.getStyleClass().add("res-chip");
+        container.setAlignment(Pos.CENTER);
+
         Group icon = ResourceIcons.of(kind);
-        icon.setScaleX(1.5);
-        icon.setScaleY(1.5);
+        icon.setScaleX(1.1);
+        icon.setScaleY(1.1);
         StackPane iconSlot = new StackPane(icon);
-        iconSlot.setMinSize(34, 34);
-        iconSlot.setPrefSize(34, 34);
-        iconSlot.setMaxSize(34, 34);
+        iconSlot.setMinSize(26, 26);
+        iconSlot.setPrefSize(26, 26);
+        iconSlot.setMaxSize(26, 26);
+        iconSlot.setAlignment(Pos.CENTER);
+
         Label countLabel = new Label(String.valueOf(count));
-        countLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: 900; -fx-text-fill: #f3ead8;");
-        chip.getChildren().addAll(iconSlot, countLabel);
-        return chip;
+        countLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 900; -fx-text-fill: #f3ead8; -fx-font-family: 'Gemunu Libre';");
+
+        container.getChildren().addAll(iconSlot, countLabel);
+        return container;
     }
 
     private void addTeamRow(String name, String color, int vp, int pipe, int post, int lab, int knights, int cards, int dev, boolean active) {
-        VBox row = new VBox(6);
-        row.getStyleClass().add("card-dark");
-        row.setStyle("-fx-padding: 8 10 10 10;"
-                + (active
-                ? "-fx-border-color: -p-" + color + "; -fx-border-width: 0 0 0 4;"
-                : "-fx-border-width: 0 0 0 4; -fx-border-color: transparent;"));
+        VBox row = new VBox(0);
+        row.getStyleClass().add("team-row");
+        if (active) row.getStyleClass().add("team-row--active");
+        row.setStyle(active
+                ? "-fx-border-color: -p-" + color + "; -fx-border-width: 0 0 0 3.5;"
+                : "-fx-border-color: transparent; -fx-border-width: 0 0 0 3.5;");
 
+        // ── header ──────────────────────────────────────────────
         HBox header = new HBox(8);
+        header.getStyleClass().add("team-row__header");
         header.setAlignment(Pos.CENTER_LEFT);
+
         StackPane chip = new StackPane();
         chip.getStyleClass().addAll("initial-chip", "pc-" + color);
-        chip.setMinSize(28, 28);
-        chip.setMaxSize(28, 28);
-        chip.getChildren().add(new Label(String.valueOf(name.charAt(0))));
+        chip.setMinSize(26, 26);
+        chip.setMaxSize(26, 26);
+        Label initial = new Label(String.valueOf(name.charAt(0)));
+        initial.setStyle("-fx-font-size: 13px; -fx-font-weight: 900; -fx-text-fill: rgba(255,255,255,0.92);");
+        chip.getChildren().add(initial);
 
         Label nameLabel = new Label(name);
-        nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: -ink-on-dark;");
+        nameLabel.setStyle("-fx-font-weight: 800; -fx-font-size: 12px; -fx-text-fill: -ink-on-dark;");
+        HBox.setHgrow(nameLabel, Priority.ALWAYS);
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Label activeTag = new Label(active ? "YOUR TURN" : "");
+        activeTag.setStyle("-fx-font-size: 8px; -fx-font-weight: 900; -fx-text-fill: -gold-1;"
+                + "-fx-background-color: rgba(245,183,56,0.14); -fx-background-radius: 4;"
+                + "-fx-padding: 1 5;");
 
         StackPane coin = new StackPane(new Label(String.valueOf(vp)));
         coin.getStyleClass().add("coin");
-        coin.setMinSize(26, 26);
-        coin.setMaxSize(26, 26);
+        coin.setMinSize(24, 24);
+        coin.setMaxSize(24, 24);
 
-        header.getChildren().addAll(chip, nameLabel, spacer, coin);
+        header.getChildren().addAll(chip, nameLabel, activeTag, coin);
 
-        HBox stats = new HBox(8);
+        // ── divider ─────────────────────────────────────────────
+        Region divider = new Region();
+        divider.getStyleClass().add("team-row__divider");
+
+        // ── stat grid ───────────────────────────────────────────
+        HBox stats = new HBox(4);
+        stats.getStyleClass().add("team-row__stats");
         stats.setAlignment(Pos.CENTER_LEFT);
         stats.getChildren().addAll(
-                statCell("🛢", pipe + "/15"),
-                statCell("🛡", post + "/5"),
-                statCell("🔬", lab + "/4"),
-                statCell("⚔", String.valueOf(knights)),
-                statCell("🃏", String.valueOf(cards)),
-                statCell("📜", String.valueOf(dev))
+                statCell(GameIcons.pipe(), String.valueOf(pipe), "/15"),
+                statCell(GameIcons.monitoringPost(), String.valueOf(post), "/5"),
+                statCell(GameIcons.laboratory(), String.valueOf(lab), "/4"),
+                statCell(GameIcons.knight(), String.valueOf(knights), null),
+                statCell(GameIcons.cardStack(), String.valueOf(cards), null),
+                statCell(GameIcons.scroll(), String.valueOf(dev), null)
         );
 
-        row.getChildren().addAll(header, stats);
+        row.getChildren().addAll(header, divider, stats);
         teamList.getChildren().add(row);
     }
 
-    private VBox statCell(String icon, String value) {
+    private VBox statCell(Group iconGroup, String value, String cap) {
         VBox cell = new VBox(2);
+        cell.getStyleClass().add("team-stat-cell");
         cell.setAlignment(Pos.CENTER);
-        Label iconLabel = new Label(icon);
-        iconLabel.setStyle("-fx-font-size: 12px;");
-        Label valueLabel = new Label(value);
-        valueLabel.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: #f1e6cf;");
-        cell.getChildren().addAll(iconLabel, valueLabel);
+
+        StackPane iconSlot = new StackPane(iconGroup);
+        iconSlot.setMinSize(18, 18);
+        iconSlot.setMaxSize(18, 18);
+        iconGroup.setScaleX(0.72);
+        iconGroup.setScaleY(0.72);
+
+        HBox valRow = new HBox(0);
+        valRow.setAlignment(Pos.CENTER);
+        Label valLabel = new Label(value);
+        valLabel.setStyle("-fx-font-size: 10px; -fx-font-weight: 900; -fx-text-fill: #f3ead8;");
+        valRow.getChildren().add(valLabel);
+        if (cap != null) {
+            Label capLabel = new Label(cap);
+            capLabel.setStyle("-fx-font-size: 8px; -fx-font-weight: 600; -fx-text-fill: #7fa8be;");
+            valRow.getChildren().add(capLabel);
+        }
+
+        cell.getChildren().addAll(iconSlot, valRow);
         return cell;
     }
 
@@ -917,8 +999,8 @@ public class GameController {
             buildPipeBtn.setDisable(true);
             upgradeLabBtn.setDisable(true);
             resolveNimonBtn.setDisable(true);
-            rollDiceBtn.setDisable(diceAnimationRunning || diceFlowContext != null);
-            rollDiceBtn.setText("🎲 START");
+            dicePanel.setDisable(diceAnimationRunning || diceFlowContext != null);
+
             endTurnBtn.setDisable(true);
             return;
         }
@@ -938,8 +1020,8 @@ public class GameController {
         buildPipeBtn.setDisable(true);
         upgradeLabBtn.setDisable(true);
         resolveNimonBtn.setDisable(true);
-        rollDiceBtn.setDisable(diceAnimationRunning || diceFlowContext != null || phase != TurnPhase.RESOURCE_GATHERING);
-        rollDiceBtn.setText("🎲 ROLL");
+        dicePanel.setDisable(diceAnimationRunning || diceFlowContext != null || phase != TurnPhase.RESOURCE_GATHERING);
+
         endTurnBtn.setDisable(phase != TurnPhase.TRADE_BUILD);
 
         if (phase == TurnPhase.SETUP) {
@@ -962,7 +1044,7 @@ public class GameController {
             buildPipeBtn.setDisable(true);
             upgradeLabBtn.setDisable(true);
             resolveNimonBtn.setDisable(true);
-            rollDiceBtn.setDisable(true);
+            dicePanel.setDisable(true);
             endTurnBtn.setDisable(true);
         }
     }
@@ -1388,6 +1470,12 @@ public class GameController {
         log("[Nimon] Roll 7 activated Nimon Ungu. Discard required for: " + String.join(", ", pendingNames) + ".");
     }
 
+    private double computeMinScale(double availW, double availH) {
+        double minByW = availW / (BG_MULT * BOARD_DESIGN_W);
+        double minByH = availH / (BG_MULT * BOARD_DESIGN_H);
+        return Math.max(minByW, minByH);
+    }
+
     private void fitBoard() {
         double availW = boardHolder.getWidth()
                 - boardHolder.getPadding().getLeft() - boardHolder.getPadding().getRight();
@@ -1397,8 +1485,9 @@ public class GameController {
             return;
         }
 
+        double minScale = computeMinScale(availW, availH);
         double scale = Math.min(availW / BOARD_DESIGN_W, availH / BOARD_DESIGN_H);
-        scale = Math.max(BOARD_MIN_SCALE, Math.min(scale, BOARD_MAX_SCALE));
+        scale = Math.max(minScale, Math.min(scale, BOARD_MAX_SCALE));
         canvasScale.setX(scale);
         canvasScale.setY(scale);
         canvasTranslate.setX((availW - BOARD_DESIGN_W * scale) / 2 + boardHolder.getPadding().getLeft());
@@ -1406,13 +1495,20 @@ public class GameController {
     }
 
     private void applyZoom(double factor, double pivotX, double pivotY) {
+        double availW = boardHolder.getWidth();
+        double availH = boardHolder.getHeight();
+        double minScale = availW > 0 && availH > 0 ? computeMinScale(availW, availH) : 0.1;
+
         double oldScale = canvasScale.getX();
-        double newScale = Math.max(BOARD_MIN_SCALE, Math.min(oldScale * factor, BOARD_MAX_SCALE));
+        double newScale = Math.max(minScale, Math.min(oldScale * factor, BOARD_MAX_SCALE));
         double ratio = newScale / oldScale;
-        canvasTranslate.setX(pivotX - ratio * (pivotX - canvasTranslate.getX()));
-        canvasTranslate.setY(pivotY - ratio * (pivotY - canvasTranslate.getY()));
+        double tx = pivotX - ratio * (pivotX - canvasTranslate.getX());
+        double ty = pivotY - ratio * (pivotY - canvasTranslate.getY());
+        double[] clamped = clampTranslate(tx, ty, newScale);
         canvasScale.setX(newScale);
         canvasScale.setY(newScale);
+        canvasTranslate.setX(clamped[0]);
+        canvasTranslate.setY(clamped[1]);
     }
 
     private void onCanvasScroll(ScrollEvent event) {
@@ -1456,8 +1552,11 @@ public class GameController {
             return;
         }
         if (event.getButton() == MouseButton.PRIMARY || event.getButton() == MouseButton.MIDDLE) {
-            canvasTranslate.setX(translateStartX + (event.getSceneX() - dragStartX));
-            canvasTranslate.setY(translateStartY + (event.getSceneY() - dragStartY));
+            double tx = translateStartX + (event.getSceneX() - dragStartX);
+            double ty = translateStartY + (event.getSceneY() - dragStartY);
+            double[] clamped = clampTranslate(tx, ty, canvasScale.getX());
+            canvasTranslate.setX(clamped[0]);
+            canvasTranslate.setY(clamped[1]);
         }
     }
 
@@ -1465,6 +1564,23 @@ public class GameController {
         if (event.getSource() instanceof Pane pane) {
             pane.setCursor(javafx.scene.Cursor.DEFAULT);
         }
+    }
+
+    private double[] clampTranslate(double tx, double ty, double scale) {
+        double vw = boardHolder.getWidth();
+        double vh = boardHolder.getHeight();
+        double bgX = -1.5 * BOARD_DESIGN_W;
+        double bgY = -1.5 * BOARD_DESIGN_H;
+        double bgW = BG_MULT * BOARD_DESIGN_W;
+        double bgH = BG_MULT * BOARD_DESIGN_H;
+        double minTx = -(bgX + bgW) * scale + vw;
+        double maxTx = -bgX * scale;
+        double minTy = -(bgY + bgH) * scale + vh;
+        double maxTy = -bgY * scale;
+        return new double[]{
+            Math.max(minTx, Math.min(tx, maxTx)),
+            Math.max(minTy, Math.min(ty, maxTy))
+        };
     }
 
     private void installFrame() {
@@ -1660,7 +1776,7 @@ public class GameController {
         PlayerConfig contender = startingOrderContenders.get(startingOrderRollIndex);
         diceFlowContext = DiceFlowContext.STARTING_ORDER;
         showDiceDialog(
-                "🎲  DETERMINE FIRST PLAYER",
+                "DETERMINE FIRST PLAYER",
                 "Choose how " + contender.getName() + " will roll for starting order.",
                 "ROLL FOR " + contender.getName().toUpperCase(),
                 GameSession.engine().isManualDiceEnabled()
@@ -1841,7 +1957,7 @@ public class GameController {
     }
 
     private void renderHudDie(Pane target, int value) {
-        DicePips.render(target, value, 70);
+        DicePips.render(target, value, 54);
     }
 
     private List<PlayerConfig> rotateFromStarter(List<PlayerConfig> configs, PlayerConfig starter) {
