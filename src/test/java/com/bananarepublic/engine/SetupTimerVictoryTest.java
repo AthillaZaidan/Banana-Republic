@@ -6,6 +6,8 @@ import com.bananarepublic.model.board.Intersection;
 import com.bananarepublic.model.board.Path;
 import com.bananarepublic.model.board.TerrainType;
 import com.bananarepublic.model.card.DevelopmentDeck;
+import com.bananarepublic.model.card.DevelopmentCard;
+import com.bananarepublic.model.card.VictoryPointCard;
 import com.bananarepublic.model.building.Laboratory;
 import com.bananarepublic.model.building.MonitoringPost;
 import com.bananarepublic.model.player.Player;
@@ -98,6 +100,19 @@ class SetupTimerVictoryTest {
         engine.checkVictory();
         assertEquals(current, state.getWinner().orElseThrow());
         assertEquals(TurnPhase.GAME_OVER, state.getTurnState().getPhase());
+    }
+
+    @Test
+    void publicVictoryPointsExcludeSecretPrestigeCards() {
+        GameEngine engine = createTwoPlayerGame();
+        Player current = engine.getState().getCurrentPlayer();
+        VictoryService victoryService = new VictoryService();
+
+        current.addSecretVictoryPoints(3);
+        current.addSpecialCard(SpecialCardType.LONGEST_ROAD);
+
+        assertEquals(2, victoryService.calculatePublicVictoryPoints(current));
+        assertEquals(5, victoryService.calculateVictoryPoints(current));
     }
 
     @Test
@@ -357,6 +372,33 @@ class SetupTimerVictoryTest {
 
         engine.buyDevelopmentCard(secondActive.getId());
         assertEquals(1, secondActive.getHandCardCount());
+    }
+
+    @Test
+    void hiddenVictoryPointCardStaysInHandAndCannotBePlayed() {
+        GameEngine engine = createTwoPlayerGame();
+        finishSetup(engine);
+
+        Player active = engine.getState().getCurrentPlayer();
+        active.addResource(ResourceType.ORE, 1);
+        active.addResource(ResourceType.BANANA, 1);
+        active.addResource(ResourceType.WHEAT, 1);
+        engine.rollDice(DiceMode.MANUAL, DiceRoll.of(3, 3));
+
+        VictoryPointCard secretCard = new VictoryPointCard("VP-SECRET-1");
+        engine.getState().setDevelopmentDeck(new DevelopmentDeck(List.of(secretCard)));
+
+        engine.buyDevelopmentCard(active.getId());
+
+        assertEquals(1, active.getHandCardCount());
+        assertEquals(1, active.getSecretVictoryPoints());
+        DevelopmentCard handCard = active.getHandCards().getFirst();
+        assertTrue(handCard instanceof VictoryPointCard);
+        assertTrue(((VictoryPointCard) handCard).isConsumed());
+        assertEquals(0, engine.getState().getDevelopmentDeck().discardSize());
+        assertThrows(IllegalStateException.class, () -> engine.playDevelopmentCard(active.getId(), handCard.getId()));
+        assertEquals(1, active.getHandCardCount());
+        assertEquals(1, active.getSecretVictoryPoints());
     }
 
     private GameEngine createTwoPlayerGame() {

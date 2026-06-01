@@ -1,5 +1,6 @@
 package com.bananarepublic.persistence;
 
+import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.engine.GameState;
 import com.bananarepublic.exception.SaveLoadException;
 
@@ -39,15 +40,34 @@ public class SnapshotSaveLoadService implements SaveLoadService {
         }
     }
 
+    public void save(GameEngine engine, Path path) {
+        Objects.requireNonNull(engine, "Game engine cannot be null");
+        Path targetPath = normalize(path);
+        GameSaveData saveData = GameSaveData.fromEngine(engine);
+
+        try {
+            if (isSerializedFile(targetPath)) {
+                writeSerialized(saveData, targetPath);
+            } else {
+                writeJson(saveData, targetPath);
+            }
+        } catch (IOException e) {
+            throw new SaveLoadException("Failed to save game to " + targetPath, e);
+        }
+    }
+
     @Override
     public GameState load(Path path) {
+        return loadSnapshot(path).toGameState();
+    }
+
+    public GameSaveData loadSnapshot(Path path) {
         Path sourcePath = normalize(path);
 
         try {
-            GameSaveData saveData = isSerializedFile(sourcePath)
+            return isSerializedFile(sourcePath)
                     ? readSerialized(sourcePath)
                     : readJson(sourcePath);
-            return saveData.toGameState();
         } catch (IOException e) {
             throw new SaveLoadException("Failed to load game from " + sourcePath, e);
         }

@@ -52,6 +52,7 @@ public final class HexBoard extends Pane {
     private static final double HARBOR_COAST_OUTSET = 3;
     private static final double HARBOR_COLLISION_STEP = 20;
     private static final double HARBOR_EDGE_PADDING = 18;
+    private static final double NIMON_TOKEN_CLEARANCE = 28;
     private static final int[] ROW_COLUMNS = {3, 4, 5, 4, 3};
     private static final DropShadow TOKEN_SHADOW = new DropShadow(3, Color.color(0, 0, 0, 0.25));
     private static final Map<TerrainType, TerrainVisual> TERRAIN_VISUALS = createTerrainVisuals();
@@ -231,7 +232,8 @@ public final class HexBoard extends Pane {
         }
 
         if (hasRobber) {
-            Circle robber = new Circle(center.getX(), tokenY, 18);
+            double robberY = tile.getToken() == null ? center.getY() + 20 : tokenY + NIMON_TOKEN_CLEARANCE;
+            Circle robber = new Circle(center.getX(), robberY, 18);
             robber.setFill(Color.web("#6d34a2"));
             robber.setStroke(Color.web("#20112f"));
             robber.setStrokeWidth(2.5);
@@ -242,7 +244,7 @@ public final class HexBoard extends Pane {
             marker.setFont(Font.font("Gemunu Libre", FontWeight.BLACK, 15));
             marker.setFill(Color.WHITE);
             marker.setX(center.getX() - marker.getLayoutBounds().getWidth() / 2.0);
-            marker.setY(tokenY - marker.getLayoutBounds().getCenterY());
+            marker.setY(robberY - marker.getLayoutBounds().getCenterY());
             getChildren().add(marker);
         }
     }

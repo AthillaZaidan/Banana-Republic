@@ -40,6 +40,7 @@ public class MainMenuController {
             try {
                 GameEngine engine = new GameEngine();
                 engine.loadGame(chosen);
+                GameSession.resetForNewSession();
                 GameSession.setEngine(engine);
                 GameSession.markSessionStartNow();
                 GameSession.setStartingOrderPending(false);

@@ -439,6 +439,81 @@
     -fx-text-fill: -ink-on-dark;
 }
 
+.turn-transition-card {
+    -fx-padding: 24;
+    -fx-background-radius: 22;
+    -fx-border-radius: 22;
+    -fx-border-color: rgba(244, 201, 118, 0.28);
+    -fx-border-width: 1.25;
+    -fx-effect: dropshadow(gaussian, rgba(0, 16, 28, 0.55), 32, 0.08, 0, 12);
+}
+
+.turn-transition-seal {
+    -fx-background-radius: 22;
+    -fx-border-radius: 22;
+    -fx-border-color: rgba(255, 242, 199, 0.72);
+    -fx-border-width: 2.2;
+    -fx-effect: dropshadow(gaussian, rgba(0, 18, 30, 0.35), 16, 0.05, 0, 5);
+}
+
+.turn-transition-seal__initial {
+    -fx-text-fill: #2c1f0c;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 34px;
+    -fx-font-weight: 900;
+}
+
+.turn-transition-title {
+    -fx-text-fill: -ink-on-dark;
+    -fx-font-size: 28px;
+    -fx-font-weight: 900;
+}
+
+.turn-transition-subtitle {
+    -fx-text-fill: -gold-3;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+}
+
+.turn-transition-guidance {
+    -fx-text-fill: -ink-on-dark-mute;
+    -fx-font-size: 14px;
+    -fx-line-spacing: 2px;
+}
+
+.turn-transition-plaque {
+    -fx-text-fill: #493016;
+    -fx-font-weight: 900;
+}
+
+.turn-transition-stat {
+    -fx-min-width: 92;
+    -fx-padding: 12 10;
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-border-color: rgba(244, 201, 118, 0.18);
+    -fx-border-width: 1;
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+}
+
+.turn-transition-stat__value {
+    -fx-text-fill: -ink-on-dark;
+    -fx-font-size: 20px;
+    -fx-font-weight: 900;
+}
+
+.turn-transition-stat__label {
+    -fx-text-fill: -ink-on-dark-mute;
+    -fx-font-size: 10px;
+    -fx-font-weight: 800;
+}
+
+.turn-transition-note {
+    -fx-text-fill: -ink-on-dark-mute;
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-alignment: center;
+}
 /* ── Team rows (right sidebar player list) ─────────────────── */
 .team-row {
     -fx-background-color:
@@ -489,7 +564,6 @@
 }
 
 /* ────────────────────────────────────────────────────────────── */
-
 .plaque {
     -fx-background-color: linear-gradient(to bottom, #fff7df 0%, #f0e3b6 100%);
     -fx-border-color: -parchment-line;
@@ -662,6 +736,12 @@
     -fx-spacing: 12;
     -fx-alignment: center-right;
     -fx-background-radius: 0 0 18 18;
+}
+.modal__hint {
+    -fx-text-fill: -ink-mute;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-alignment: center-left;
 }
 
 .build-cost-row {

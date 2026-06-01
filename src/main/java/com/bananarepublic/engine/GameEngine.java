@@ -15,6 +15,7 @@ import com.bananarepublic.persistence.SaveLoadService;
 import com.bananarepublic.persistence.SnapshotSaveLoadService;
 import com.bananarepublic.plugin.Action;
 import com.bananarepublic.plugin.BotPluginLoader;
+import com.bananarepublic.plugin.GreedyBotStrategy;
 import com.bananarepublic.plugin.MapPluginLoader;
 import com.bananarepublic.plugin.PlayerStrategy;
 import com.bananarepublic.plugin.PluginLoadException;
@@ -57,6 +58,7 @@ public class GameEngine {
     private final SaveLoadService saveLoadService;
     private boolean manualDiceEnabled;
     private GameConfig activeConfig;
+    private String activeBotPluginJarPath;
     private final Map<String, PlayerStrategy> botStrategies = new HashMap<>();
     private GameState state;
 
@@ -119,6 +121,7 @@ public class GameEngine {
         configureBotStrategies(config, players);
         manualDiceEnabled = config.isManualDiceEnabled();
         activeConfig = config;
+        activeBotPluginJarPath = config.getBotPluginJarPath();
     }
 
     public DiceRoll rollDice(DiceMode mode, DiceRoll manualRoll) {
@@ -231,17 +234,13 @@ public class GameEngine {
         requirePlayablePhase();
 
         DevelopmentCard card = findAndValidateCard(playerId, cardId);
-        if (!(card instanceof VictoryPointCard)) {
-            validateCanPlayCard(cardId);
+        if (card instanceof VictoryPointCard) {
+            throw new IllegalStateException("Victory point cards stay hidden until the game ends.");
         }
+        validateCanPlayCard(cardId);
 
         card.play(state, state.getCurrentPlayer());
-
-        if (card instanceof VictoryPointCard) {
-            updateWinner();
-        } else {
-            state.getTurnState().setHasPlayedDevelopmentCard(true);
-        }
+        state.getTurnState().setHasPlayedDevelopmentCard(true);
 
         removeCardFromHand(playerId, cardId);
         state.getDevelopmentDeck().discard(card);
@@ -532,6 +531,15 @@ public class GameEngine {
         return activeConfig;
     }
 
+    public java.util.Set<String> getBotPlayerIds() {
+        requireStarted();
+        return java.util.Set.copyOf(botStrategies.keySet());
+    }
+
+    public String getActiveBotPluginJarPath() {
+        return activeBotPluginJarPath;
+    }
+
     public boolean isCurrentPlayerBot() {
         requireStarted();
         return isBotPlayer(state.getCurrentPlayer().getId());
@@ -647,24 +655,31 @@ public class GameEngine {
     }
 
     public boolean canBuyDevelopmentCard(String playerId) {
+        return getDevelopmentCardPurchaseBlockReason(playerId) == null;
+    }
+
+    public String getDevelopmentCardPurchaseBlockReason(String playerId) {
         requireStarted();
         if (!state.getCurrentPlayer().getId().equals(playerId)) {
-            return false;
+            return "Bukan giliran pemain ini.";
         }
         if (state.getTurnState().getPhase() != TurnPhase.TRADE_BUILD) {
-            return false;
+            return "Kartu hanya bisa dibeli saat fase Trade / Build.";
         }
 
         DevelopmentDeck deck = state.getDevelopmentDeck();
         if (deck == null || deck.isEmpty()) {
-            return false;
+            return "Deck Kartu Temuan sudah habis.";
         }
 
         ResourceInventory cost = new ResourceInventory();
         cost.add(ResourceType.ORE, 1);
         cost.add(ResourceType.BANANA, 1);
         cost.add(ResourceType.WHEAT, 1);
-        return state.getCurrentPlayer().hasResources(cost);
+        if (!state.getCurrentPlayer().hasResources(cost)) {
+            return "Butuh 1 Besi, 1 Pisang, dan 1 Gandum untuk membeli kartu.";
+        }
+        return null;
     }
 
     public void produceResources(int diceTotal) {
@@ -693,17 +708,30 @@ public class GameEngine {
     public void saveGame(File file) {
         requireStarted();
         Objects.requireNonNull(file, "Save file cannot be null");
-        saveLoadService.save(state, file.toPath());
+        if (saveLoadService instanceof SnapshotSaveLoadService snapshotSaveLoadService) {
+            snapshotSaveLoadService.save(this, file.toPath());
+        } else {
+            saveLoadService.save(state, file.toPath());
+        }
     }
 
     public void loadGame(File file) {
         Objects.requireNonNull(file, "Save file cannot be null");
         timerService.stop();
-        state = saveLoadService.load(file.toPath());
+        if (saveLoadService instanceof SnapshotSaveLoadService snapshotSaveLoadService) {
+            var snapshot = snapshotSaveLoadService.loadSnapshot(file.toPath());
+            state = snapshot.toGameState();
+            manualDiceEnabled = snapshot.manualDiceEnabled();
+            activeBotPluginJarPath = snapshot.botPluginJarPath();
+            restoreBotStrategiesAfterLoad(snapshot.botPlayerIds(), snapshot.botPluginJarPath());
+        } else {
+            state = saveLoadService.load(file.toPath());
+            manualDiceEnabled = true;
+            activeBotPluginJarPath = null;
+            botStrategies.clear();
+        }
         turnManager.restore(state.getPlayers(), state.getTurnState());
-        botStrategies.clear();
-        manualDiceEnabled = true;
-        activeConfig = null;
+        activeConfig = buildLoadedConfig();
     }
 
     private DevelopmentCard findAndValidateCard(String playerId, String cardId) {
@@ -740,7 +768,7 @@ public class GameEngine {
 
     private void requirePlayablePhase() {
         TurnPhase phase = state.getTurnState().getPhase();
-        if (phase == TurnPhase.SETUP || phase == TurnPhase.GAME_OVER) {
+        if (phase != TurnPhase.RESOURCE_GATHERING && phase != TurnPhase.TRADE_BUILD) {
             throw new IllegalStateException("Cannot play development card in " + phase + " phase");
         }
     }
@@ -766,20 +794,52 @@ public class GameEngine {
     private void configureBotStrategies(GameConfig config, List<Player> players) {
         botStrategies.clear();
         String jarPath = config.getBotPluginJarPath();
-        if (jarPath == null) {
-            return;
-        }
-
-        File jarFile = new File(jarPath);
         for (int i = 0; i < config.getPlayerConfigs().size(); i++) {
             PlayerConfig playerConfig = config.getPlayerConfigs().get(i);
             if (!playerConfig.isBotControlled()) {
                 continue;
             }
 
-            PlayerStrategy strategy = new BotPluginLoader().loadFromJar(jarFile);
+            PlayerStrategy strategy = jarPath == null || jarPath.isBlank()
+                    ? new GreedyBotStrategy()
+                    : new BotPluginLoader().loadFromJar(new File(jarPath));
             botStrategies.put(players.get(i).getId(), strategy);
         }
+    }
+
+    private void restoreBotStrategiesAfterLoad(java.util.Set<String> botPlayerIds, String jarPath) {
+        botStrategies.clear();
+        if (botPlayerIds == null || botPlayerIds.isEmpty()) {
+            return;
+        }
+
+        for (String playerId : botPlayerIds) {
+            if (state.getPlayers().stream().noneMatch(player -> player.getId().equals(playerId))) {
+                continue;
+            }
+            PlayerStrategy strategy = jarPath == null || jarPath.isBlank()
+                    ? new GreedyBotStrategy()
+                    : new BotPluginLoader().loadFromJar(new File(jarPath));
+            botStrategies.put(playerId, strategy);
+        }
+    }
+
+    private GameConfig buildLoadedConfig() {
+        List<PlayerConfig> playerConfigs = state.getPlayers().stream()
+                .map(player -> new PlayerConfig(
+                        player.getName(),
+                        player.getColor(),
+                        botStrategies.containsKey(player.getId())
+                ))
+                .toList();
+        return new GameConfig(
+                playerConfigs,
+                BoardMode.FIXED,
+                manualDiceEnabled,
+                state.getBoard(),
+                null,
+                activeBotPluginJarPath
+        );
     }
 
     private Board resolveBoard(GameConfig config) {

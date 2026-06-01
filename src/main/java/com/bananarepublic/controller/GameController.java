@@ -29,6 +29,7 @@ import com.bananarepublic.ui.Navigator;
 import com.bananarepublic.ui.ResourceIcons;
 import com.bananarepublic.ui.WoodenFrame;
 import javafx.application.Platform;
+import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.fxml.FXML;
@@ -66,10 +67,12 @@ import javafx.scene.transform.Translate;
 import javafx.util.Duration;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.StringJoiner;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -156,6 +159,14 @@ public class GameController {
         livingLayer.setMouseTransparent(true);
         AudioEngine.get().playGameBgm();
         dicePanel.setCursor(javafx.scene.Cursor.HAND);
+        dicePanel.setPickOnBounds(true);
+        dicePanel.setOnMouseReleased(event -> {
+            if (!event.isStillSincePress() || event.getButton() != javafx.scene.input.MouseButton.PRIMARY) {
+                return;
+            }
+            event.consume();
+            onRollDice();
+        });
         configureSidebarHoverZones();
         installSidebarHoverCards();
 
@@ -200,6 +211,7 @@ public class GameController {
         canvasPane.setOnZoom(this::onCanvasZoom);
         canvasPane.setOnMousePressed(this::onCanvasDragStart);
         canvasPane.setOnMouseDragged(this::onCanvasDragged);
+        canvasPane.setOnMouseReleased(this::onCanvasDragEnd);
         canvasPane.setCursor(javafx.scene.Cursor.DEFAULT);
 
         if (GameSession.hasEngine()) {
@@ -207,14 +219,20 @@ public class GameController {
             installFromEngine(state);
             trackedPlayerId = state.getCurrentPlayer().getId();
             trackedPhase = state.getTurnState().getPhase();
-            if (GameSession.isStartingOrderPending()) {
-                updateDiceDisplay(null, "Press the dice button to determine the first player.");
-                log("[Setup] Determine the first player from inside the map.");
-            } else {
-                log("[Turn] " + state.getCurrentPlayer().getName() + " is active.");
-            }
+            updateDiceDisplay(null, GameSession.isStartingOrderPending() ? "START" : "ROLL DICE");
         } else {
             installPreviewData();
+        }
+
+        renderPersistedLogbook();
+        if (GameSession.hasEngine() && !GameSession.hasLogEntries()) {
+            GameState state = GameSession.engine().getState();
+            if (GameSession.isStartingOrderPending()) {
+                updateDiceDisplay(null, "START");
+                log("[Setup] Determine the first player from inside the map.");
+            } else {
+                log("[Turn] " + state.getCurrentPlayer().getName() + " starts the turn.");
+            }
         }
 
         installFrame();
@@ -256,6 +274,18 @@ public class GameController {
     }
 
     public void log(String entry) {
+        GameSession.appendLogEntry(entry);
+        appendLogEntryToUi(entry);
+    }
+
+    private void renderPersistedLogbook() {
+        logbook.getChildren().clear();
+        for (String entry : GameSession.getLogEntries()) {
+            appendLogEntryToUi(entry);
+        }
+    }
+
+    private void appendLogEntryToUi(String entry) {
         HBox row = new HBox(6);
         row.getStyleClass().add("log-entry");
         row.setAlignment(Pos.TOP_LEFT);
@@ -303,6 +333,13 @@ public class GameController {
         if (isBoardSelectionActive()) {
             showInfo("Placement Active", "Finish the current map placement first.");
             return;
+        }
+        if (GameSession.hasEngine()) {
+            TurnPhase phase = GameSession.engine().getState().getTurnState().getPhase();
+            if (phase != TurnPhase.RESOURCE_GATHERING && phase != TurnPhase.TRADE_BUILD) {
+                showInfo("Unavailable", "Cards cannot be played during " + phase + ".");
+                return;
+            }
         }
         AudioEngine.get().playSfx(AudioEngine.Sfx.CLICK);
         Navigator.showOverlay("/fxml/cards_dialog.fxml");
@@ -356,10 +393,19 @@ public class GameController {
                             try {
                                 GameEngine currentEngine = GameSession.engine();
                                 GameState currentState = currentEngine.getState();
+                                Map<ResourceType, Integer> resourcesBefore = snapshotPlayerResources(currentState.getCurrentPlayer());
+                                boolean grantsInitialResources = currentState.getTurnState().getSetupRound() == 2;
                                 currentEngine.placeSetupWatchPost(playerId, intersectionId);
                                 AudioEngine.get().playSfx(AudioEngine.Sfx.BUILD);
                                 log("[Setup] " + currentState.getCurrentPlayer().getName()
                                         + " placed a monitoring post at " + intersectionId + ".");
+                                if (grantsInitialResources) {
+                                    logPositiveResourceDelta(
+                                            "[Setup] " + currentState.getCurrentPlayer().getName() + " received initial resources: ",
+                                            resourcesBefore,
+                                            currentEngine.getState().getCurrentPlayer()
+                                    );
+                                }
                                 refresh();
                             } catch (RuntimeException ex) {
                                 showError("Build Failed", ex.getMessage());
@@ -535,12 +581,8 @@ public class GameController {
         refresh();
     }
 
-    @FXML
-    private void onRollDice(javafx.scene.input.MouseEvent ignored) {
-        onRollDice();
-    }
-
     private void onRollDice() {
+        normalizeStaleDiceUiState();
         if (isBoardSelectionActive()) {
             showInfo("Placement Active", "Finish the current map placement first.");
             return;
@@ -580,9 +622,11 @@ public class GameController {
         if (result == null) {
             if (resolvedContext == DiceFlowContext.STARTING_ORDER) {
                 resetStartingOrderFlow();
-                updateDiceDisplay(null, "Starting order not resolved.");
+                updateDiceDisplay(null, "START");
                 refresh();
+                return;
             }
+            refresh();
             return;
         }
 
@@ -607,12 +651,15 @@ public class GameController {
         }
 
         GameEngine engine = GameSession.engine();
+        String endedPlayerName = engine.getState().getCurrentPlayer().getName();
         try {
             if (engine.getState().isGameOver()) {
                 Navigator.showOverlay("/fxml/victory_dialog.fxml");
                 return;
             }
             engine.endTurn();
+            log("[Turn] " + endedPlayerName + " ended the turn. "
+                    + engine.getState().getCurrentPlayer().getName() + " is up next.");
         } catch (RuntimeException ex) {
             showError("End Turn Failed", ex.getMessage());
             return;
@@ -633,7 +680,7 @@ public class GameController {
         VictoryService victoryService = new VictoryService();
         for (Player player : state.getPlayers()) {
             boolean isActive = player.equals(active);
-            int vp = victoryService.calculateVictoryPoints(player);
+            int vp = displayedVictoryPoints(victoryService, player, active);
             addTeamRow(
                     player.getName(),
                     cssColor(player.getColor()),
@@ -641,6 +688,7 @@ public class GameController {
                     player.getOwnedPipes().size(),
                     ownedPosts(player),
                     ownedLabs(player),
+                    player.getPlayedKnightCount(),
                     player.getTotalResourceCards(),
                     player.getHandCardCount(),
                     isActive
@@ -650,11 +698,18 @@ public class GameController {
         installResourceBar(active);
     }
 
+    private int displayedVictoryPoints(VictoryService victoryService, Player player, Player activeViewer) {
+        if (player.equals(activeViewer)) {
+            return victoryService.calculateVictoryPoints(player);
+        }
+        return victoryService.calculatePublicVictoryPoints(player);
+    }
+
     private void installPreviewData() {
         teamList.getChildren().clear();
-        addTeamRow("Stewart", "red", 2, 1, 2, 0, 3, 0, true);
-        addTeamRow("Gro", "blue", 4, 4, 2, 1, 5, 2, false);
-        addTeamRow("Kebin", "gold", 3, 2, 2, 0, 2, 1, false);
+        addTeamRow("Stewart", "red", 2, 1, 2, 0, 0, 3, 0, true);
+        addTeamRow("Gro", "blue", 4, 4, 2, 1, 1, 5, 2, false);
+        addTeamRow("Kebin", "gold", 3, 2, 2, 0, 0, 2, 1, false);
         installPreviewResources();
         phaseLabel.setText("Preview Board");
         timerValue.setText("--:--");
@@ -710,7 +765,7 @@ public class GameController {
         resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.WHEAT,  0, "WHEAT"));
         resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.ORE,    1, "ORE"));
         resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.BANANA, 2, "BANANA"));
-        updateDiceDisplay(null, "Roll the dice");
+        updateDiceDisplay(null, "ROLL DICE");
     }
 
     private void installSidebarHoverCards() {
@@ -768,7 +823,7 @@ public class GameController {
         return container;
     }
 
-    private void addTeamRow(String name, String color, int vp, int pipe, int post, int lab, int cards, int dev, boolean active) {
+    private void addTeamRow(String name, String color, int vp, int pipe, int post, int lab, int knights, int cards, int dev, boolean active) {
         VBox row = new VBox(0);
         row.getStyleClass().add("team-row");
         if (active) row.getStyleClass().add("team-row--active");
@@ -814,11 +869,12 @@ public class GameController {
         stats.getStyleClass().add("team-row__stats");
         stats.setAlignment(Pos.CENTER_LEFT);
         stats.getChildren().addAll(
-                statCell(GameIcons.pipe(),       String.valueOf(pipe),  "/15"),
-                statCell(GameIcons.monitoringPost(), String.valueOf(post),  "/5"),
-                statCell(GameIcons.laboratory(), String.valueOf(lab),   "/4"),
-                statCell(GameIcons.cardStack(),  String.valueOf(cards), null),
-                statCell(GameIcons.scroll(),     String.valueOf(dev),   null)
+                statCell(GameIcons.pipe(), String.valueOf(pipe), "/15"),
+                statCell(GameIcons.monitoringPost(), String.valueOf(post), "/5"),
+                statCell(GameIcons.laboratory(), String.valueOf(lab), "/4"),
+                statCell(GameIcons.knight(), String.valueOf(knights), null),
+                statCell(GameIcons.cardStack(), String.valueOf(cards), null),
+                statCell(GameIcons.scroll(), String.valueOf(dev), null)
         );
 
         row.getChildren().addAll(header, divider, stats);
@@ -867,6 +923,13 @@ public class GameController {
                 && !trackedPlayerId.equals(state.getCurrentPlayer().getId())
                 && trackedPhase == TurnPhase.TRADE_BUILD
                 && state.getTurnState().getPhase() == TurnPhase.RESOURCE_GATHERING) {
+            String previousPlayerName = state.getPlayers().stream()
+                    .filter(player -> player.getId().equals(trackedPlayerId))
+                    .map(Player::getName)
+                    .findFirst()
+                    .orElse("Previous player");
+            log("[Turn] " + previousPlayerName + " ended the turn. "
+                    + state.getCurrentPlayer().getName() + " is up next.");
             trackedPlayerId = state.getCurrentPlayer().getId();
             trackedPhase = state.getTurnState().getPhase();
             if (uiTimer != null) {
@@ -879,12 +942,27 @@ public class GameController {
         syncTimerAndPhaseUi();
         trackedPlayerId = state.getCurrentPlayer().getId();
         trackedPhase = state.getTurnState().getPhase();
+        recoverMissedBotRollTrigger(state);
+    }
+
+    private void recoverMissedBotRollTrigger(GameState state) {
+        if (GameSession.isStartingOrderPending()
+                || diceAnimationRunning
+                || diceFlowContext != null
+                || state.getTurnState().getPhase() != TurnPhase.RESOURCE_GATHERING
+                || !GameSession.engine().isCurrentPlayerBot()) {
+            return;
+        }
+
+        queueBotAutomationIfNeeded();
     }
 
     private void syncTimerAndPhaseUi() {
         if (!GameSession.hasEngine()) {
             return;
         }
+
+        normalizeStaleDiceUiState();
 
         if (GameSession.isStartingOrderPending()) {
             timerValue.setText("--:--");
@@ -908,6 +986,15 @@ public class GameController {
         }
         updateTimerDisplay(remaining);
         updatePhaseUi(state);
+    }
+
+    private void normalizeStaleDiceUiState() {
+        if (diceAnimationRunning && (diceAnimation == null || diceAnimation.getStatus() != Animation.Status.RUNNING)) {
+            diceAnimationRunning = false;
+        }
+        if (diceFlowContext != null && GameSession.getDiceDialogRequest() == null && !diceAnimationRunning) {
+            diceFlowContext = null;
+        }
     }
 
     private void updateTimerDisplay(int remainingSeconds) {
@@ -942,6 +1029,7 @@ public class GameController {
 
         if (GameSession.isStartingOrderPending()) {
             phaseLabel.setText("Starting Order: press the dice button to decide who starts.");
+            setDicePrompt("START");
             buildPostBtn.setDisable(true);
             buildPipeBtn.setDisable(true);
             upgradeLabBtn.setDisable(true);
@@ -952,22 +1040,34 @@ public class GameController {
             return;
         }
 
-        phaseLabel.setText(switch (phase) {
-            case SETUP -> waitingForSetupPipe
-                    ? "Setup Phase: place the pipe connected to the new post."
-                    : "Setup Phase: place a monitoring post.";
-            case RESOURCE_GATHERING -> "Resource Gathering: roll dice.";
-            case DISCARD -> "A 7 was rolled: resolve mandatory discards.";
-            case MOVE_NIMON_UNGU -> "Move Nimon Ungu and resolve optional steal.";
-            case TRADE_BUILD -> "Trade / Build Phase";
-            case GAME_OVER -> "Game Over";
-        });
+        if (pendingBoardSelection != null && hasVisibleBoardSelectionTargets()) {
+            phaseLabel.setText(pendingBoardSelection.prompt());
+        } else {
+            phaseLabel.setText(switch (phase) {
+                case SETUP -> waitingForSetupPipe
+                        ? "Setup Phase: place the pipe connected to the new post."
+                        : "Setup Phase: place a monitoring post.";
+                case RESOURCE_GATHERING -> "Resource Gathering: roll dice.";
+                case DISCARD -> "A 7 was rolled: resolve mandatory discards.";
+                case MOVE_NIMON_UNGU -> "Move Nimon Ungu and resolve optional steal.";
+                case TRADE_BUILD -> "Trade / Build Phase";
+                case GAME_OVER -> "Game Over";
+            });
+        }
 
         buildPostBtn.setDisable(true);
         buildPipeBtn.setDisable(true);
         upgradeLabBtn.setDisable(true);
         resolveNimonBtn.setDisable(true);
         dicePanel.setDisable(diceAnimationRunning || diceFlowContext != null || phase != TurnPhase.RESOURCE_GATHERING);
+        setDicePrompt(switch (phase) {
+            case RESOURCE_GATHERING -> "ROLL DICE";
+            case SETUP -> "SETUP";
+            case DISCARD -> "DISCARD";
+            case MOVE_NIMON_UNGU -> "MOVE NIMON";
+            case TRADE_BUILD -> "BUILD";
+            case GAME_OVER -> "DONE";
+        });
 
         endTurnBtn.setDisable(phase != TurnPhase.TRADE_BUILD);
 
@@ -1154,15 +1254,57 @@ public class GameController {
             return false;
         }
 
-        pendingBoardSelection = new PendingBoardSelection(type, List.copyOf(ids), prompt, onSelect, onCancel);
+        List<String> renderableIds = ids.stream()
+                .filter(id -> isSelectionRenderable(type, id))
+                .toList();
+        if (renderableIds.isEmpty()) {
+            showInfo("Unavailable", "No valid placement spots available on the current board view.");
+            return false;
+        }
+
+        pendingBoardSelection = new PendingBoardSelection(type, List.copyOf(renderableIds), prompt, onSelect, onCancel);
         renderBoardSelection();
+        if (!hasVisibleBoardSelectionTargets()) {
+            pendingBoardSelection = null;
+            renderBoardSelection();
+            showInfo("Unavailable", "Could not show placement markers on the board. Try the action again.");
+            return false;
+        }
         log("[Select] " + prompt + " Right-click on the map to cancel.");
         syncTimerAndPhaseUi();
         return true;
     }
 
     private boolean isBoardSelectionActive() {
-        return pendingBoardSelection != null;
+        if (pendingBoardSelection == null) {
+            return false;
+        }
+        if (!hasVisibleBoardSelectionTargets()) {
+            log("[Select] Cleared a stale map placement state.");
+            pendingBoardSelection = null;
+            renderBoardSelection();
+            syncTimerAndPhaseUi();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isSelectionRenderable(BoardSelectionType type, String id) {
+        if (!GameSession.hasEngine() || id == null || id.isBlank()) {
+            return false;
+        }
+        return switch (type) {
+            case INTERSECTION -> board.getIntersectionPoint(id) != null;
+            case TILE -> board.getTileCenter(id) != null;
+            case PATH -> {
+                Path path = GameSession.engine().getState().getBoard().getPath(id);
+                yield path != null && board.getPathSegment(path) != null;
+            }
+        };
+    }
+
+    private boolean hasVisibleBoardSelectionTargets() {
+        return boardSelectionLayer != null && boardSelectionLayer.getChildren().size() > 1;
     }
 
     private void renderBoardSelection() {
@@ -1179,7 +1321,8 @@ public class GameController {
         clickCatcher.setFill(Color.color(0, 0, 0, 0.001));
         clickCatcher.setStroke(null);
         clickCatcher.setOnMousePressed(MouseEvent::consume);
-        clickCatcher.setOnMouseClicked(event -> {
+        clickCatcher.setOnMouseDragged(MouseEvent::consume);
+        clickCatcher.setOnMouseReleased(event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 event.consume();
                 cancelBoardSelection();
@@ -1284,7 +1427,8 @@ public class GameController {
 
     private void wireSelectionNode(Node node, String selectionId) {
         node.setOnMousePressed(MouseEvent::consume);
-        node.setOnMouseClicked(event -> {
+        node.setOnMouseDragged(MouseEvent::consume);
+        node.setOnMouseReleased(event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 event.consume();
                 cancelBoardSelection();
@@ -1339,6 +1483,82 @@ public class GameController {
         };
     }
 
+    private String logResourceName(ResourceType type) {
+        return switch (type) {
+            case WOOD -> "Kayu";
+            case BRICK -> "Batu Bata";
+            case WHEAT -> "Gandum";
+            case ORE -> "Bijih";
+            case BANANA -> "Pisang";
+        };
+    }
+
+    private Map<String, Map<ResourceType, Integer>> snapshotAllPlayerResources(GameState state) {
+        Map<String, Map<ResourceType, Integer>> snapshot = new LinkedHashMap<>();
+        for (Player player : state.getPlayers()) {
+            snapshot.put(player.getId(), snapshotPlayerResources(player));
+        }
+        return snapshot;
+    }
+
+    private Map<ResourceType, Integer> snapshotPlayerResources(Player player) {
+        Map<ResourceType, Integer> snapshot = new EnumMap<>(ResourceType.class);
+        for (ResourceType type : ResourceType.values()) {
+            snapshot.put(type, player.getResourceAmount(type));
+        }
+        return snapshot;
+    }
+
+    private void logRollResourceDistribution(int diceTotal, Map<String, Map<ResourceType, Integer>> before, GameState after) {
+        boolean loggedGain = false;
+        for (Player player : after.getPlayers()) {
+            String delta = describePositiveDelta(before.get(player.getId()), player);
+            if (delta == null) {
+                continue;
+            }
+            loggedGain = true;
+            log("[Resource] " + player.getName() + " mendapatkan " + delta + " dari roll " + diceTotal + ".");
+        }
+        if (!loggedGain) {
+            log("[Resource] Roll " + diceTotal + " tidak menghasilkan material untuk pemain mana pun.");
+        }
+    }
+
+    private void logPositiveResourceDelta(String prefix, Map<ResourceType, Integer> before, Player player) {
+        String delta = describePositiveDelta(before, player);
+        if (delta != null) {
+            log(prefix + delta + ".");
+        }
+    }
+
+    private String describePositiveDelta(Map<ResourceType, Integer> before, Player player) {
+        if (before == null) {
+            return null;
+        }
+        StringJoiner joiner = new StringJoiner(", ");
+        for (ResourceType type : ResourceType.values()) {
+            int previous = before.getOrDefault(type, 0);
+            int gained = player.getResourceAmount(type) - previous;
+            if (gained > 0) {
+                joiner.add(gained + " " + logResourceName(type));
+            }
+        }
+        String result = joiner.toString();
+        return result.isBlank() ? null : result;
+    }
+
+    private void logSevenResolution(GameEngine engine) {
+        List<String> pendingNames = engine.getState().getTurnState().getPendingDiscardPlayerIds().stream()
+                .map(playerId -> engine.getState().getPlayerById(playerId).getName())
+                .sorted()
+                .toList();
+        if (pendingNames.isEmpty()) {
+            log("[Nimon] Roll 7 activated Nimon Ungu. No discard is required.");
+            return;
+        }
+        log("[Nimon] Roll 7 activated Nimon Ungu. Discard required for: " + String.join(", ", pendingNames) + ".");
+    }
+
     private double computeMinScale(double availW, double availH) {
         double minByW = availW / (BG_MULT * BOARD_DESIGN_W);
         double minByH = availH / (BG_MULT * BOARD_DESIGN_H);
@@ -1381,6 +1601,10 @@ public class GameController {
     }
 
     private void onCanvasScroll(ScrollEvent event) {
+        if (isBoardSelectionActive()) {
+            event.consume();
+            return;
+        }
         if (event.getTouchCount() > 0) {
             return;
         }
@@ -1389,11 +1613,19 @@ public class GameController {
     }
 
     private void onCanvasZoom(ZoomEvent event) {
+        if (isBoardSelectionActive()) {
+            event.consume();
+            return;
+        }
         applyZoom(event.getZoomFactor(), event.getX(), event.getY());
         event.consume();
     }
 
     private void onCanvasDragStart(MouseEvent event) {
+        if (isBoardSelectionActive() && event.getButton() == MouseButton.PRIMARY) {
+            event.consume();
+            return;
+        }
         if (event.getButton() == MouseButton.PRIMARY || event.getButton() == MouseButton.MIDDLE) {
             dragStartX = event.getSceneX();
             dragStartY = event.getSceneY();
@@ -1404,12 +1636,22 @@ public class GameController {
     }
 
     private void onCanvasDragged(MouseEvent event) {
+        if (isBoardSelectionActive() && event.getButton() == MouseButton.PRIMARY) {
+            event.consume();
+            return;
+        }
         if (event.getButton() == MouseButton.PRIMARY || event.getButton() == MouseButton.MIDDLE) {
             double tx = translateStartX + (event.getSceneX() - dragStartX);
             double ty = translateStartY + (event.getSceneY() - dragStartY);
             double[] clamped = clampTranslate(tx, ty, canvasScale.getX());
             canvasTranslate.setX(clamped[0]);
             canvasTranslate.setY(clamped[1]);
+        }
+    }
+
+    private void onCanvasDragEnd(MouseEvent event) {
+        if (event.getSource() instanceof Pane pane) {
+            pane.setCursor(javafx.scene.Cursor.DEFAULT);
         }
     }
 
@@ -1514,11 +1756,9 @@ public class GameController {
                 switch (phase) {
                     case SETUP -> log("[Bot] " + engine.resolveBotSetupStep());
                     case RESOURCE_GATHERING -> {
-                        Player bot = state.getCurrentPlayer();
-                        DiceRoll roll = engine.rollDice(DiceMode.RANDOM, null);
-                        updateDiceDisplay(roll, bot.getName() + " rolled");
-                        log("[Bot] " + bot.getName() + " rolled "
-                                + roll.getFirst() + " + " + roll.getSecond() + " = " + roll.total() + ".");
+                        autoRollForBotTurn();
+                        refresh();
+                        return;
                     }
                     case MOVE_NIMON_UNGU -> log("[Bot] " + engine.resolveBotNimonFlow());
                     case TRADE_BUILD -> log("[Bot] " + engine.executeBotTradeBuildAction());
@@ -1603,7 +1843,11 @@ public class GameController {
         if (startingOrderBaseConfig == null) {
             startingOrderBaseConfig = new GameConfig(
                     engine.getState().getPlayers().stream()
-                            .map(player -> new PlayerConfig(player.getName(), player.getColor()))
+                            .map(player -> new PlayerConfig(
+                                    player.getName(),
+                                    player.getColor(),
+                                    engine.isBotPlayer(player.getId())
+                            ))
                             .toList(),
                     BoardMode.FIXED,
                     engine.isManualDiceEnabled()
@@ -1624,6 +1868,10 @@ public class GameController {
 
         PlayerConfig contender = startingOrderContenders.get(startingOrderRollIndex);
         diceFlowContext = DiceFlowContext.STARTING_ORDER;
+        if (contender.isBotControlled()) {
+            Platform.runLater(() -> onDiceDialogResolved(new DiceDialogResult(DiceMode.RANDOM, null)));
+            return;
+        }
         showDiceDialog(
                 "DETERMINE FIRST PLAYER",
                 "Choose how " + contender.getName() + " will roll for starting order.",
@@ -1663,7 +1911,7 @@ public class GameController {
             GameSession.setEngine(rotatedEngine);
             GameSession.setStartingOrderPending(false);
             DiceRoll starterRoll = startingOrderRoundRolls.get(starter);
-            updateDiceDisplay(starterRoll, starter.getName() + " starts first");
+            updateDiceDisplay(starterRoll, "READY");
             log("[Start Roll] " + starter.getName() + " starts first with "
                     + starterRoll.getFirst() + " + " + starterRoll.getSecond()
                     + " = " + starterRoll.total() + ".");
@@ -1677,7 +1925,7 @@ public class GameController {
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("");
         log("[Start Roll] Tie at " + bestTotal + " between " + tiedNames + ". Rerolling tied players.");
-        updateDiceDisplay(null, "Tie at " + bestTotal + ". Rerolling " + tiedNames + ".");
+        updateDiceDisplay(null, "REROLL");
         startingOrderContenders = new ArrayList<>(highest);
         startingOrderRoundRolls.clear();
         startingOrderRollIndex = 0;
@@ -1688,20 +1936,28 @@ public class GameController {
         GameEngine engine = GameSession.engine();
         GameState state = engine.getState();
         String playerName = state.getCurrentPlayer().getName();
+        boolean botTurn = engine.isCurrentPlayerBot();
+        Map<String, Map<ResourceType, Integer>> resourcesBefore = snapshotAllPlayerResources(state);
 
         try {
-                DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
+            DiceRoll roll = engine.rollDice(result.mode(), result.manualRoll());
             animateDiceRoll(roll, playerName + " rolled", () -> {
-                log("[Roll] " + playerName + " rolled "
+                log((botTurn ? "[Bot] " : "[Roll] ") + playerName + " rolled "
                         + roll.getFirst() + " + " + roll.getSecond()
                         + " = " + roll.total() + ".");
 
                 if (roll.total() == 7) {
-                    if (engine.getState().getTurnState().getPhase() == TurnPhase.DISCARD) {
+                    logSevenResolution(engine);
+                    if (engine.getState().getTurnState().getPhase() == TurnPhase.DISCARD
+                            && engine.getState().getTurnState().getPendingDiscardPlayerIds().stream()
+                            .anyMatch(playerId -> !engine.isBotPlayer(playerId))) {
                         Navigator.showOverlay("/fxml/discard_dialog.fxml");
-                    } else if (engine.getState().getTurnState().getPhase() == TurnPhase.MOVE_NIMON_UNGU) {
+                    } else if (!botTurn
+                            && engine.getState().getTurnState().getPhase() == TurnPhase.MOVE_NIMON_UNGU) {
                         promptNimonFlow();
                     }
+                } else {
+                    logRollResourceDistribution(roll.total(), resourcesBefore, engine.getState());
                 }
 
                 checkVictory();
@@ -1760,6 +2016,10 @@ public class GameController {
         return DiceRoll.of(1 + (int) (Math.random() * 6), 1 + (int) (Math.random() * 6));
     }
 
+    private void autoRollForBotTurn() {
+        resolveNormalTurnRoll(new DiceDialogResult(DiceMode.RANDOM, null));
+    }
+
     private void showInfo(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
@@ -1781,10 +2041,20 @@ public class GameController {
         if (roll == null) {
             renderHudDie(dieOneValue, 1);
             renderHudDie(dieTwoValue, 1);
+            setDicePrompt(summary);
             return;
         }
         renderHudDie(dieOneValue, roll.getFirst());
         renderHudDie(dieTwoValue, roll.getSecond());
+        setDicePrompt(summary);
+    }
+
+    private void setDicePrompt(String prompt) {
+        if (diceSummaryLabel == null) {
+            return;
+        }
+        String normalized = prompt == null || prompt.isBlank() ? "ROLL DICE" : prompt.trim();
+        diceSummaryLabel.setText(normalized);
     }
 
     private void renderHudDie(Pane target, int value) {

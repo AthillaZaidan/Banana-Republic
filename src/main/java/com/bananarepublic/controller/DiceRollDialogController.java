@@ -123,7 +123,7 @@ public class DiceRollDialogController {
         renderPreview(firstDiePreview, firstDieValue);
         renderPreview(secondDiePreview, secondDieValue);
         helperLabel.setText(manualMode
-                ? "Manual result: " + firstDieValue + " + " + secondDieValue + " = " + (firstDieValue + secondDieValue)
+                ? "Manual result: " + dieFace(firstDieValue) + " + " + dieFace(secondDieValue) + " = " + (firstDieValue + secondDieValue)
                 : "Random mode will roll both dice automatically.");
     }
 
@@ -166,5 +166,17 @@ public class DiceRollDialogController {
 
     private void renderPreview(Pane target, int value) {
         DicePips.render(target, value, 112);
+    }
+
+    private String dieFace(int value) {
+        return switch (value) {
+            case 1 -> "⚀";
+            case 2 -> "⚁";
+            case 3 -> "⚂";
+            case 4 -> "⚃";
+            case 5 -> "⚄";
+            case 6 -> "⚅";
+            default -> "?";
+        };
     }
 }

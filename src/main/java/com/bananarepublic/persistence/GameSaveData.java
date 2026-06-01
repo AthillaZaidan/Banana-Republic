@@ -1,5 +1,6 @@
 package com.bananarepublic.persistence;
 
+import com.bananarepublic.engine.GameEngine;
 import com.bananarepublic.engine.GameState;
 import com.bananarepublic.engine.TurnPhase;
 import com.bananarepublic.engine.TurnState;
@@ -61,10 +62,13 @@ public record GameSaveData(
         TurnSaveData turn,
         String winnerPlayerId,
         String longestRoadHolderId,
-        String largestArmyHolderId
+        String largestArmyHolderId,
+        boolean manualDiceEnabled,
+        String botPluginJarPath,
+        Set<String> botPlayerIds
 ) implements Serializable {
     private static final long serialVersionUID = 1L;
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
 
     public GameSaveData {
         if (version != CURRENT_VERSION) {
@@ -77,6 +81,7 @@ public record GameSaveData(
         Objects.requireNonNull(deck, "Deck cannot be null");
         Objects.requireNonNull(robberPosition, "Robber position cannot be null");
         Objects.requireNonNull(turn, "Turn data cannot be null");
+        botPlayerIds = Set.copyOf(Objects.requireNonNull(botPlayerIds, "Bot player ids cannot be null"));
     }
 
     public static GameSaveData fromState(GameState state) {
@@ -96,7 +101,38 @@ public record GameSaveData(
                 TurnSaveData.fromTurnState(state.getTurnState()),
                 state.getWinner().map(Player::getId).orElse(null),
                 state.getLongestRoadHolder().map(Player::getId).orElse(null),
-                state.getLargestArmyHolder().map(Player::getId).orElse(null)
+                state.getLargestArmyHolder().map(Player::getId).orElse(null),
+                true,
+                null,
+                Set.of()
+        );
+
+        assert saveData.players.size() == state.getPlayers().size();
+        return saveData;
+    }
+
+    public static GameSaveData fromEngine(GameEngine engine) {
+        Objects.requireNonNull(engine, "Game engine cannot be null");
+        GameState state = engine.getState();
+
+        GameSaveData saveData = new GameSaveData(
+                CURRENT_VERSION,
+                Instant.now().toString(),
+                BoardSaveData.fromBoard(state.getBoard()),
+                state.getPlayers().stream()
+                        .map(PlayerSaveData::fromPlayer)
+                        .toList(),
+                state.getTurnState().getCurrentPlayerIndex(),
+                InventorySaveData.fromInventory(state.getBank().getInventoryCopy()),
+                DeckSaveData.fromDeck(requireDeck(state)),
+                state.getNimonTileId(),
+                TurnSaveData.fromTurnState(state.getTurnState()),
+                state.getWinner().map(Player::getId).orElse(null),
+                state.getLongestRoadHolder().map(Player::getId).orElse(null),
+                state.getLargestArmyHolder().map(Player::getId).orElse(null),
+                engine.isManualDiceEnabled(),
+                engine.getActiveBotPluginJarPath(),
+                engine.getBotPlayerIds()
         );
 
         assert saveData.players.size() == state.getPlayers().size();
@@ -144,6 +180,9 @@ public record GameSaveData(
         summary.put("winnerPlayerId", winnerPlayerId);
         summary.put("longestRoadHolderId", longestRoadHolderId);
         summary.put("largestArmyHolderId", largestArmyHolderId);
+        summary.put("manualDiceEnabled", manualDiceEnabled);
+        summary.put("botPluginJarPath", botPluginJarPath);
+        summary.put("botPlayerIds", botPlayerIds.stream().sorted().toList());
         return summary;
     }
 

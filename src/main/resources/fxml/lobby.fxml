@@ -76,7 +76,8 @@
                 <Label styleClass="eyebrow" text="ENVIRONMENT DATA"/>
                 <HBox styleClass="plugin-tile">
                     <StackPane styleClass="plugin-tile-icon">
-                        <Pane fx:id="mapPluginIconPane" prefWidth="22" prefHeight="22" pickOnBounds="false"/>
+                        <StackPane fx:id="mapPluginIconPane" alignment="CENTER"
+                                   prefWidth="22" prefHeight="22" pickOnBounds="false"/>
                     </StackPane>
                     <VBox HBox.hgrow="ALWAYS" spacing="2">
                         <Label text="Map Plugin" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
@@ -93,7 +94,8 @@
                 </Label>
                 <HBox styleClass="plugin-tile">
                     <StackPane styleClass="plugin-tile-icon">
-                        <Pane fx:id="botPluginIconPane" prefWidth="22" prefHeight="22" pickOnBounds="false"/>
+                        <StackPane fx:id="botPluginIconPane" alignment="CENTER"
+                                   prefWidth="22" prefHeight="22" pickOnBounds="false"/>
                     </StackPane>
                     <VBox HBox.hgrow="ALWAYS" spacing="2">
                         <Label text="Bot Plugin" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>

@@ -30,9 +30,10 @@
         </VBox>
 
         <HBox styleClass="modal__footer">
+            <Label fx:id="buyHintLabel" styleClass="modal__hint" wrapText="true"
+                   HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <Button fx:id="buyBtn" styleClass="btn,btn-outline,card-buy-btn" text="BELI KARTU" onAction="#onBuy"/>
-            <Button styleClass="btn,btn-outline" text="TUTUP" onAction="#onClose"/>
-            <Button styleClass="btn,btn-gold"    text="▸ MAINKAN KARTU TERPILIH"
+            <Button fx:id="playBtn" styleClass="btn,btn-gold" text="▸ MAINKAN KARTU TERPILIH"
                     onAction="#onPlay"/>
         </HBox>
     </VBox>

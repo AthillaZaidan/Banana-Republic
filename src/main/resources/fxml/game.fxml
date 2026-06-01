@@ -185,8 +185,8 @@
 
                     <!-- Dice pair — two squares side by side, both clickable -->
                     <VBox fx:id="dicePanel" alignment="CENTER" spacing="4"
-                          onMouseClicked="#onRollDice">
-                        <HBox spacing="6" alignment="CENTER">
+                          pickOnBounds="true">
+                        <HBox spacing="6" alignment="CENTER" mouseTransparent="true">
                             <StackPane styleClass="die-face">
                                 <Pane fx:id="dieOneValue" pickOnBounds="false"/>
                             </StackPane>
@@ -194,7 +194,7 @@
                                 <Pane fx:id="dieTwoValue" pickOnBounds="false"/>
                             </StackPane>
                         </HBox>
-                        <Label fx:id="diceSummaryLabel" styleClass="bottom-btn-label" text="ROLL DICE"/>
+                        <Label fx:id="diceSummaryLabel" styleClass="bottom-btn-label" text="ROLL DICE" mouseTransparent="true"/>
                     </VBox>
 
                     <!-- END TURN: square gold -->
