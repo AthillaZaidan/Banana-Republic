@@ -40,11 +40,11 @@ public class ScoreboardDialogController {
 
         GameState state = GameSession.engine().getState();
         Player active = state.getCurrentPlayer();
-        summaryBand.setText(active.getName() + " sedang aktif. Peringkat diurutkan berdasarkan total victory points.");
+        summaryBand.setText(active.getName() + " sedang aktif. Peringkat memakai VP yang terlihat; hanya pemain aktif melihat secret VP miliknya.");
 
         List<Player> ranking = new ArrayList<>(state.getPlayers());
         ranking.sort(Comparator
-                .comparingInt((Player player) -> victoryService.calculateVictoryPoints(player))
+                .comparingInt((Player player) -> displayedVictoryPoints(player, active))
                 .reversed()
                 .thenComparing(Player::getName));
 
@@ -105,9 +105,9 @@ public class ScoreboardDialogController {
 
         VBox vpBox = new VBox(2);
         vpBox.setAlignment(Pos.CENTER_RIGHT);
-        Label vpHint = new Label("TOTAL VP");
+        Label vpHint = new Label(active ? "TOTAL VP" : "PUBLIC VP");
         vpHint.getStyleClass().add("scoreboard-kicker");
-        Label vpValue = new Label(String.valueOf(victoryService.calculateVictoryPoints(player)));
+        Label vpValue = new Label(String.valueOf(displayedVictoryPoints(player, GameSession.engine().getState().getCurrentPlayer())));
         vpValue.getStyleClass().add("scoreboard-vp");
         vpBox.getChildren().addAll(vpHint, vpValue);
 
@@ -129,6 +129,13 @@ public class ScoreboardDialogController {
 
         row.getChildren().addAll(header, stats);
         return row;
+    }
+
+    private int displayedVictoryPoints(Player player, Player activeViewer) {
+        if (player.equals(activeViewer)) {
+            return victoryService.calculateVictoryPoints(player);
+        }
+        return victoryService.calculatePublicVictoryPoints(player);
     }
 
     private Label createTag(String text, boolean currentTurn) {

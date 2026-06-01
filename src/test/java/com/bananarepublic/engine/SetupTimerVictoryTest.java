@@ -103,6 +103,19 @@ class SetupTimerVictoryTest {
     }
 
     @Test
+    void publicVictoryPointsExcludeSecretPrestigeCards() {
+        GameEngine engine = createTwoPlayerGame();
+        Player current = engine.getState().getCurrentPlayer();
+        VictoryService victoryService = new VictoryService();
+
+        current.addSecretVictoryPoints(3);
+        current.addSpecialCard(SpecialCardType.LONGEST_ROAD);
+
+        assertEquals(2, victoryService.calculatePublicVictoryPoints(current));
+        assertEquals(5, victoryService.calculateVictoryPoints(current));
+    }
+
+    @Test
     void largestArmyAndLongestRoadOwnershipCanTransfer() {
         GameEngine engine = createTwoPlayerGame();
         GameState state = engine.getState();

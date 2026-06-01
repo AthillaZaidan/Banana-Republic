@@ -680,7 +680,7 @@ public class GameController {
         VictoryService victoryService = new VictoryService();
         for (Player player : state.getPlayers()) {
             boolean isActive = player.equals(active);
-            int vp = victoryService.calculateVictoryPoints(player);
+            int vp = displayedVictoryPoints(victoryService, player, active);
             addTeamRow(
                     player.getName(),
                     cssColor(player.getColor()),
@@ -696,6 +696,13 @@ public class GameController {
         }
 
         installResourceBar(active);
+    }
+
+    private int displayedVictoryPoints(VictoryService victoryService, Player player, Player activeViewer) {
+        if (player.equals(activeViewer)) {
+            return victoryService.calculateVictoryPoints(player);
+        }
+        return victoryService.calculatePublicVictoryPoints(player);
     }
 
     private void installPreviewData() {

@@ -24,12 +24,18 @@ public class VictoryService {
     public int calculateVictoryPoints(Player player) {
         Objects.requireNonNull(player, "Player cannot be null");
 
+        return calculatePublicVictoryPoints(player) + player.getSecretVictoryPoints();
+    }
+
+    public int calculatePublicVictoryPoints(Player player) {
+        Objects.requireNonNull(player, "Player cannot be null");
+
         int buildingPoints = player.getOwnedBuildings().stream()
                 .mapToInt(Building::getVictoryPoint)
                 .sum();
 
         int specialPoints = player.getSpecialCards().size() * 2;
-        return buildingPoints + player.getSecretVictoryPoints() + specialPoints;
+        return buildingPoints + specialPoints;
     }
 
     public Optional<Player> findWinner(GameState state) {
