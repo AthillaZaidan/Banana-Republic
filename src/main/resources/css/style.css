@@ -737,6 +737,12 @@
     -fx-alignment: center-right;
     -fx-background-radius: 0 0 18 18;
 }
+.modal__hint {
+    -fx-text-fill: -ink-mute;
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-alignment: center-left;
+}
 
 .build-cost-row {
     -fx-padding: 14 16;

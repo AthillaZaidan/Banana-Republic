@@ -158,6 +158,14 @@ public class GameController {
         livingLayer.setMouseTransparent(true);
         AudioEngine.get().playGameBgm();
         dicePanel.setCursor(javafx.scene.Cursor.HAND);
+        dicePanel.setPickOnBounds(true);
+        dicePanel.setOnMouseReleased(event -> {
+            if (!event.isStillSincePress() || event.getButton() != javafx.scene.input.MouseButton.PRIMARY) {
+                return;
+            }
+            event.consume();
+            onRollDice();
+        });
         configureSidebarHoverZones();
         installSidebarHoverCards();
 
@@ -210,9 +218,7 @@ public class GameController {
             installFromEngine(state);
             trackedPlayerId = state.getCurrentPlayer().getId();
             trackedPhase = state.getTurnState().getPhase();
-            updateDiceDisplay(null, GameSession.isStartingOrderPending()
-                    ? "Press the dice button to determine the first player."
-                    : "Roll the dice");
+            updateDiceDisplay(null, GameSession.isStartingOrderPending() ? "START" : "ROLL DICE");
         } else {
             installPreviewData();
         }
@@ -221,7 +227,7 @@ public class GameController {
         if (GameSession.hasEngine() && !GameSession.hasLogEntries()) {
             GameState state = GameSession.engine().getState();
             if (GameSession.isStartingOrderPending()) {
-                updateDiceDisplay(null, "Press the dice button to determine the first player.");
+                updateDiceDisplay(null, "START");
                 log("[Setup] Determine the first player from inside the map.");
             } else {
                 log("[Turn] " + state.getCurrentPlayer().getName() + " starts the turn.");
@@ -574,11 +580,6 @@ public class GameController {
         refresh();
     }
 
-    @FXML
-    private void onRollDice(javafx.scene.input.MouseEvent ignored) {
-        onRollDice();
-    }
-
     private void onRollDice() {
         if (isBoardSelectionActive()) {
             showInfo("Placement Active", "Finish the current map placement first.");
@@ -619,7 +620,7 @@ public class GameController {
         if (result == null) {
             if (resolvedContext == DiceFlowContext.STARTING_ORDER) {
                 resetStartingOrderFlow();
-                updateDiceDisplay(null, "Starting order not resolved.");
+                updateDiceDisplay(null, "START");
                 refresh();
                 return;
             }
@@ -755,7 +756,7 @@ public class GameController {
         resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.WHEAT,  0, "WHEAT"));
         resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.ORE,    1, "ORE"));
         resBar.getChildren().add(resourceChipWrapped(ResourceIcons.Kind.BANANA, 2, "BANANA"));
-        updateDiceDisplay(null, "Roll the dice");
+        updateDiceDisplay(null, "ROLL DICE");
     }
 
     private void installSidebarHoverCards() {
@@ -995,6 +996,7 @@ public class GameController {
 
         if (GameSession.isStartingOrderPending()) {
             phaseLabel.setText("Starting Order: press the dice button to decide who starts.");
+            setDicePrompt("START");
             buildPostBtn.setDisable(true);
             buildPipeBtn.setDisable(true);
             upgradeLabBtn.setDisable(true);
@@ -1021,6 +1023,14 @@ public class GameController {
         upgradeLabBtn.setDisable(true);
         resolveNimonBtn.setDisable(true);
         dicePanel.setDisable(diceAnimationRunning || diceFlowContext != null || phase != TurnPhase.RESOURCE_GATHERING);
+        setDicePrompt(switch (phase) {
+            case RESOURCE_GATHERING -> "ROLL DICE";
+            case SETUP -> "SETUP";
+            case DISCARD -> "DISCARD";
+            case MOVE_NIMON_UNGU -> "MOVE NIMON";
+            case TRADE_BUILD -> "BUILD";
+            case GAME_OVER -> "DONE";
+        });
 
         endTurnBtn.setDisable(phase != TurnPhase.TRADE_BUILD);
 
@@ -1814,7 +1824,7 @@ public class GameController {
             GameSession.setEngine(rotatedEngine);
             GameSession.setStartingOrderPending(false);
             DiceRoll starterRoll = startingOrderRoundRolls.get(starter);
-            updateDiceDisplay(starterRoll, starter.getName() + " starts first");
+            updateDiceDisplay(starterRoll, "READY");
             log("[Start Roll] " + starter.getName() + " starts first with "
                     + starterRoll.getFirst() + " + " + starterRoll.getSecond()
                     + " = " + starterRoll.total() + ".");
@@ -1828,7 +1838,7 @@ public class GameController {
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("");
         log("[Start Roll] Tie at " + bestTotal + " between " + tiedNames + ". Rerolling tied players.");
-        updateDiceDisplay(null, "Tie at " + bestTotal + ". Rerolling " + tiedNames + ".");
+        updateDiceDisplay(null, "REROLL");
         startingOrderContenders = new ArrayList<>(highest);
         startingOrderRoundRolls.clear();
         startingOrderRollIndex = 0;
@@ -1950,10 +1960,20 @@ public class GameController {
         if (roll == null) {
             renderHudDie(dieOneValue, 1);
             renderHudDie(dieTwoValue, 1);
+            setDicePrompt(summary);
             return;
         }
         renderHudDie(dieOneValue, roll.getFirst());
         renderHudDie(dieTwoValue, roll.getSecond());
+        setDicePrompt(summary);
+    }
+
+    private void setDicePrompt(String prompt) {
+        if (diceSummaryLabel == null) {
+            return;
+        }
+        String normalized = prompt == null || prompt.isBlank() ? "ROLL DICE" : prompt.trim();
+        diceSummaryLabel.setText(normalized);
     }
 
     private void renderHudDie(Pane target, int value) {

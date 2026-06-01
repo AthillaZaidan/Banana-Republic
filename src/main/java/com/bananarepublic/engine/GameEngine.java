@@ -658,24 +658,31 @@ public class GameEngine {
     }
 
     public boolean canBuyDevelopmentCard(String playerId) {
+        return getDevelopmentCardPurchaseBlockReason(playerId) == null;
+    }
+
+    public String getDevelopmentCardPurchaseBlockReason(String playerId) {
         requireStarted();
         if (!state.getCurrentPlayer().getId().equals(playerId)) {
-            return false;
+            return "Bukan giliran pemain ini.";
         }
         if (state.getTurnState().getPhase() != TurnPhase.TRADE_BUILD) {
-            return false;
+            return "Kartu hanya bisa dibeli saat fase Trade / Build.";
         }
 
         DevelopmentDeck deck = state.getDevelopmentDeck();
         if (deck == null || deck.isEmpty()) {
-            return false;
+            return "Deck Kartu Temuan sudah habis.";
         }
 
         ResourceInventory cost = new ResourceInventory();
         cost.add(ResourceType.ORE, 1);
         cost.add(ResourceType.BANANA, 1);
         cost.add(ResourceType.WHEAT, 1);
-        return state.getCurrentPlayer().hasResources(cost);
+        if (!state.getCurrentPlayer().hasResources(cost)) {
+            return "Butuh 1 Besi, 1 Pisang, dan 1 Gandum untuk membeli kartu.";
+        }
+        return null;
     }
 
     public void produceResources(int diceTotal) {

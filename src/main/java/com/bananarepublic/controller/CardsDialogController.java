@@ -40,6 +40,7 @@ public class CardsDialogController {
     @FXML private StackPane root;
     @FXML private HBox cardRow;
     @FXML private Label emptyLabel;
+    @FXML private Label buyHintLabel;
     @FXML private Button buyBtn;
 
     private VBox selectedCardBox;
@@ -373,12 +374,19 @@ public class CardsDialogController {
         }
         if (!GameSession.hasEngine()) {
             buyBtn.setDisable(true);
+            if (buyHintLabel != null) {
+                buyHintLabel.setText("Tidak ada engine aktif.");
+            }
             return;
         }
 
         GameEngine engine = GameSession.engine();
         Player active = engine.getState().getCurrentPlayer();
-        buyBtn.setDisable(!engine.canBuyDevelopmentCard(active.getId()));
+        String blockReason = engine.getDevelopmentCardPurchaseBlockReason(active.getId());
+        buyBtn.setDisable(blockReason != null);
+        if (buyHintLabel != null) {
+            buyHintLabel.setText(blockReason == null ? "" : blockReason);
+        }
     }
 
     private HBox createBuyButtonGraphic() {
