@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.TradeDialogController"
+           styleClass="modal-backdrop" prefWidth="1280" prefHeight="800">
+
+    <VBox styleClass="modal" maxWidth="720" maxHeight="-Infinity">
+
+        <HBox styleClass="modal__header" alignment="CENTER_LEFT">
+            <Label styleClass="modal__title" text="TRADE RESOURCES" HBox.hgrow="ALWAYS"
+                   maxWidth="Infinity"/>
+            <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
+        </HBox>
+
+        <VBox styleClass="modal__body" spacing="14">
+            <HBox styleClass="tabs" spacing="28">
+                <Label fx:id="tabDomestic" styleClass="tab,is-active" text="DOMESTIC TRADE"
+                       onMouseClicked="#onSelectDomestic"/>
+                <Label fx:id="tabMaritime" styleClass="tab" text="MARITIME TRADE"
+                       onMouseClicked="#onSelectMaritime"/>
+            </HBox>
+
+            <Label fx:id="tradeStateLabel" managed="false" visible="false" wrapText="true"
+                   styleClass="warn-band" text="Pending offer"/>
+
+            <Label styleClass="eyebrow" text="I WANT TO GIVE">
+                <VBox.margin><Insets top="6"/></VBox.margin>
+            </Label>
+            <HBox fx:id="giveRow" spacing="8"/>
+
+            <HBox alignment="CENTER" spacing="12">
+                <Region styleClass="divider-gold" HBox.hgrow="ALWAYS"/>
+                <Pane fx:id="tradeArrowIcon" prefWidth="22" prefHeight="22" pickOnBounds="false"/>
+                <Region styleClass="divider-gold" HBox.hgrow="ALWAYS"/>
+            </HBox>
+
+            <Label styleClass="eyebrow" text="I WANT TO RECEIVE"/>
+            <HBox fx:id="receiveRow" spacing="8"/>
+
+            <VBox fx:id="offerToBlock" spacing="6">
+                <Label styleClass="eyebrow" text="OFFER TO"/>
+                <HBox fx:id="offerToRow" spacing="10"/>
+            </VBox>
+
+            <Label fx:id="maritimeRateLabel" managed="false" visible="false"
+                   styleClass="warn-band"
+                   text="Maritime trade rate: 4:1 (no harbor access)"/>
+        </VBox>
+
+        <HBox styleClass="modal__footer">
+            <Button fx:id="closeBtn" styleClass="btn,btn-outline" text="CANCEL" onAction="#onClose"/>
+            <Button fx:id="rejectBtn" styleClass="btn,btn-outline" text="REJECT"
+                    onAction="#onReject" managed="false" visible="false"/>
+            <Button fx:id="acceptBtn" styleClass="btn,btn-outline" text="ACCEPT"
+                    onAction="#onAccept" managed="false" visible="false"/>
+            <Button fx:id="submitBtn" styleClass="btn,btn-gold" text="SUBMIT OFFER" onAction="#onSubmit"/>
+        </HBox>
+    </VBox>
+</StackPane>

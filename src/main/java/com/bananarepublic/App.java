@@ -1,26 +1,30 @@
 package com.bananarepublic;
 
+import com.bananarepublic.ui.Navigator;
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
-import java.io.IOException;
-
 public class App extends Application {
-    private static final String MAIN_FXML = "/fxml/main.fxml";
     private static final String APP_TITLE = "Banana Republic";
 
     @Override
-    public void start(Stage stage) throws IOException {
-        FXMLLoader loader = new FXMLLoader(App.class.getResource(MAIN_FXML));
-        Scene scene = new Scene(loader.load());
-
+    public void start(Stage stage) {
+        loadFonts();
+        Navigator.init(stage);
         stage.setTitle(APP_TITLE);
-        stage.setScene(scene);
-        stage.setMinWidth(800);
-        stage.setMinHeight(600);
+        stage.setMinWidth(1100);
+        stage.setMinHeight(720);
+        Navigator.goTo("/fxml/main_menu.fxml");
         stage.show();
+    }
+
+    private void loadFonts() {
+        String[] weights = {"ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold"};
+        for (String w : weights) {
+            Font.loadFont(App.class.getResourceAsStream(
+                    "/fonts/GemunuLibre/GemunuLibre-" + w + ".ttf"), 14);
+        }
     }
 
     public static void main(String[] args) {

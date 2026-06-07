@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.GameResultController"
+           styleClass="bg-parchment" prefWidth="1280" prefHeight="800">
+
+    <Pane fx:id="livingLayer" pickOnBounds="false"/>
+
+    <VBox styleClass="card" alignment="TOP_CENTER" maxWidth="900" maxHeight="-Infinity" spacing="18">
+        <padding><Insets top="36" right="44" bottom="36" left="44"/></padding>
+
+        <VBox alignment="CENTER" spacing="6">
+            <Label styleClass="eyebrow" text="L5 · GAME RESULT"/>
+            <HBox alignment="CENTER" spacing="6">
+                <Pane fx:id="trophyIcon" prefWidth="24" prefHeight="24" pickOnBounds="false"/>
+                <Label fx:id="winnerName" text="Gro"
+                       style="-fx-font-family: Georgia; -fx-font-size: 30px;
+                              -fx-font-weight: 900; -fx-text-fill: -gold-1;
+                              -fx-effect: dropshadow(gaussian, -gold-deep, 0, 1, 0, 1);"/>
+                <Label text=" has founded the Banana Republic!"
+                       style="-fx-font-family: Georgia; -fx-font-size: 22px;
+                              -fx-text-fill: -gold-deep;"/>
+            </HBox>
+            <Region styleClass="wordmark-underline" maxWidth="240" prefHeight="3">
+                <VBox.margin><Insets top="6"/></VBox.margin>
+            </Region>
+        </VBox>
+
+        <GridPane hgap="22">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="34"/>
+                <ColumnConstraints percentWidth="66"/>
+            </columnConstraints>
+            <rowConstraints><RowConstraints/></rowConstraints>
+
+            <VBox GridPane.columnIndex="0" alignment="CENTER" spacing="6"
+                  style="-fx-background-color: linear-gradient(to bottom, #fff7df, #f0e3b6);
+                         -fx-border-color: -parchment-line; -fx-border-radius: 12;
+                         -fx-background-radius: 12; -fx-padding: 18;">
+                <Label styleClass="eyebrow" text="TOTAL PLAY TIME"/>
+                <Label fx:id="playTime" text="00:42:17"
+                       styleClass="text-mono"
+                       style="-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: -ink-1;"/>
+                <Label fx:id="summaryLabel" text="22 rounds · 7 trades" styleClass="text-mute"
+                       style="-fx-font-size: 11px;"/>
+            </VBox>
+
+            <VBox GridPane.columnIndex="1" spacing="8">
+                <Label styleClass="eyebrow" text="FINAL POINT BREAKDOWN"/>
+                <TableView fx:id="scoreTable" prefHeight="220">
+                    <columns>
+                        <TableColumn text="PLAYER" prefWidth="160">
+                            <cellValueFactory><PropertyValueFactory property="name"/></cellValueFactory>
+                        </TableColumn>
+                        <TableColumn text="POS" prefWidth="70">
+                            <cellValueFactory><PropertyValueFactory property="pos"/></cellValueFactory>
+                        </TableColumn>
+                        <TableColumn text="LAB" prefWidth="70">
+                            <cellValueFactory><PropertyValueFactory property="lab"/></cellValueFactory>
+                        </TableColumn>
+                        <TableColumn text="SPEC" prefWidth="70">
+                            <cellValueFactory><PropertyValueFactory property="spec"/></cellValueFactory>
+                        </TableColumn>
+                        <TableColumn text="SECRET" prefWidth="80">
+                            <cellValueFactory><PropertyValueFactory property="secret"/></cellValueFactory>
+                        </TableColumn>
+                        <TableColumn text="TOTAL" prefWidth="80">
+                            <cellValueFactory><PropertyValueFactory property="total"/></cellValueFactory>
+                        </TableColumn>
+                    </columns>
+                </TableView>
+                <Label text="Pos Pantau: 1 VP · Laboratorium: 2 VP · Kartu Spesial: 2 VP · Poin Rahasia: 1 VP"
+                       styleClass="text-mute" style="-fx-font-size: 11px;"
+                       alignment="CENTER_RIGHT" maxWidth="Infinity"/>
+            </VBox>
+        </GridPane>
+
+        <HBox alignment="CENTER_RIGHT" spacing="12">
+            <Button styleClass="btn,btn-outline" text="View Final Board" onAction="#onViewBoard"/>
+            <Button styleClass="btn,btn-gold"    text="Main Menu"        onAction="#onMainMenu"/>
+        </HBox>
+    </VBox>
+</StackPane>

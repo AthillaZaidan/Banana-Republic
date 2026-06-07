@@ -1,10 +1,13 @@
 package com.bananarepublic.model.player;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import com.bananarepublic.model.building.Building;
+import com.bananarepublic.model.card.DevelopmentCard;
 import com.bananarepublic.model.resource.ResourceInventory;
 import com.bananarepublic.model.resource.ResourceType;
 import com.bananarepublic.model.transport.Pipe;
@@ -19,8 +22,11 @@ public class Player {
 
     private final List<Building> ownedBuildings;
     private final List<Pipe> ownedPipes;
+    private final Set<SpecialCardType> specialCards;
+    private final List<DevelopmentCard> handCards;
 
     private int playedKnightCount;
+    private int secretVictoryPoints;
 
     public Player(String id, String name, PlayerColor color) {
         if (id == null || id.isBlank()) {
@@ -40,8 +46,11 @@ public class Player {
 
         this.ownedBuildings = new ArrayList<>();
         this.ownedPipes = new ArrayList<>();
+        this.specialCards = EnumSet.noneOf(SpecialCardType.class);
+        this.handCards = new ArrayList<>();
 
         this.playedKnightCount = 0;
+        this.secretVictoryPoints = 0;
     }
 
     public String getId() {
@@ -144,6 +153,59 @@ public class Player {
 
     public void incrementPlayedKnightCount() {
         playedKnightCount++;
+    }
+
+    public int getSecretVictoryPoints() {
+        return secretVictoryPoints;
+    }
+
+    public void addSecretVictoryPoints(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("Secret victory points cannot be negative");
+        }
+
+        secretVictoryPoints += amount;
+    }
+
+    public void addSpecialCard(SpecialCardType specialCardType) {
+        specialCards.add(Objects.requireNonNull(specialCardType, "Special card type cannot be null"));
+    }
+
+    public void removeSpecialCard(SpecialCardType specialCardType) {
+        specialCards.remove(Objects.requireNonNull(specialCardType, "Special card type cannot be null"));
+    }
+
+    public boolean hasSpecialCard(SpecialCardType specialCardType) {
+        return specialCards.contains(Objects.requireNonNull(specialCardType, "Special card type cannot be null"));
+    }
+
+    public Set<SpecialCardType> getSpecialCards() {
+        return Set.copyOf(specialCards);
+    }
+
+    public void addCard(DevelopmentCard card) {
+        Objects.requireNonNull(card, "Card cannot be null");
+        handCards.add(card);
+    }
+
+    public void removeCard(DevelopmentCard card) {
+        Objects.requireNonNull(card, "Card cannot be null");
+        handCards.remove(card);
+    }
+
+    public DevelopmentCard findCard(String cardId) {
+        return handCards.stream()
+                .filter(card -> card.getId().equals(cardId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public List<DevelopmentCard> getHandCards() {
+        return List.copyOf(handCards);
+    }
+
+    public int getHandCardCount() {
+        return handCards.size();
     }
 
     @Override

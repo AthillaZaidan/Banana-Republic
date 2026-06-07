@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="root" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.bananarepublic.controller.DiscardDialogController"
+           styleClass="modal-backdrop" prefWidth="1280" prefHeight="800">
+
+    <VBox styleClass="modal" maxWidth="760" maxHeight="-Infinity">
+
+        <HBox styleClass="modal__header" alignment="CENTER_LEFT">
+            <Label styleClass="modal__title" text="DISCARD CARDS"
+                   HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            <Button styleClass="modal__close" text="✕" onAction="#onClose"/>
+        </HBox>
+
+        <VBox styleClass="modal__body" spacing="14">
+            <HBox styleClass="danger-band" spacing="12" alignment="CENTER_LEFT">
+                <Pane fx:id="discardWarnIcon" prefWidth="22" prefHeight="22" pickOnBounds="false"/>
+                <VBox spacing="2">
+                    <Label styleClass="danger-band-title" text="Hand Limit Exceeded"/>
+                    <Label fx:id="ruleText" wrapText="true"
+                           text="A 7 was rolled. You hold 9 cards. You must discard floor(9/2) = 4."
+                           style="-fx-font-size: 12px; -fx-text-fill: -ink-2;"/>
+                </VBox>
+            </HBox>
+
+            <HBox fx:id="columns" spacing="10"/>
+        </VBox>
+
+        <HBox styleClass="modal__footer" alignment="CENTER_RIGHT">
+            <Label fx:id="progressLabel" text="Selecting 0 / 4"
+                   style="-fx-font-size: 12px; -fx-text-fill: -ink-mute;"
+                   HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            <Button fx:id="confirmBtn" styleClass="btn,btn-gold"
+                    text="CONFIRM DISCARD" onAction="#onConfirm" disable="true"/>
+        </HBox>
+    </VBox>
+</StackPane>
